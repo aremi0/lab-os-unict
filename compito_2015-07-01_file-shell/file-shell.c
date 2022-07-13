@@ -166,6 +166,8 @@ void search(request richiesta, int coda){
         perror("msgsnd figlio");
         exit(1);
     }
+
+    fclose(file);
 }
 
 void size(request richiesta, int coda){
