@@ -1,3 +1,13 @@
+/**
+ * @file calculator.c
+ * @author aremi
+ * @version 0.1
+ * @date 2022-07-14
+ * 
+ * Prova di laboratorio di SO del 2022-07-07
+ * 
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
