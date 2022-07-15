@@ -23,10 +23,6 @@
 
 #define S_GIUDICE 0
 #define S_TABELLONE 1
-#define S_P1 2
-#define S_P2 3
-
-#define DIMBUF 256
 
 int WAIT(int semDes, int nSem){
     struct sembuf op[1] = {{nSem, -1, 0}};
@@ -36,11 +32,11 @@ int SIGNAL(int semDes, int nSem){
     struct sembuf op[1] = {{nSem, +1, 0}};
     return semop(semDes, op, 1);
 }
-
 /***
- *  type 1 ==> Giudice
- *  type 2 ==> Player1 (sfruttato per mandare l'eof)
- *  type 3 ==> Player2 (sfruttato per mandare l'eof)
+ *  semafori per sincronizzare Giudice e Tabellone;
+ * 
+ *  type 1 ==> Giudice;
+ *  type 2 ==> p1 e p2 (sfruttato per mandare l'eof);
 */ 
 typedef struct{
     long type;
@@ -231,7 +227,7 @@ int main(int argc, char *argv[]){
         perror("mkfifo");
         exit(1);
     }
-    if((sem_d = semget(IPC_PRIVATE, 4, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
+    if((sem_d = semget(IPC_PRIVATE, 2, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
         perror("semget");
         exit(1);
     }
@@ -243,14 +239,6 @@ int main(int argc, char *argv[]){
     }
     if(semctl(sem_d, S_TABELLONE, SETVAL, 0) == -1){
         perror("semctl tabellone");
-        exit(1);
-    }
-    if(semctl(sem_d, S_P1, SETVAL, 0) == -1){
-        perror("semctl player1");
-        exit(1);
-    }
-    if(semctl(sem_d, S_P2, SETVAL, 0) == -1){
-        perror("semctl player2");
         exit(1);
     }
 
