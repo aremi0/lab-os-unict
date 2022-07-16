@@ -178,7 +178,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    if((sem_d = semget(IPC_PRIVATE, 4, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione semafori
+    if((sem_d = semget(IPC_PRIVATE, 3, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione semafori
         perror("semget");
         exit(1);
     }
@@ -194,12 +194,8 @@ int main(int argc, char *argv[]){
         perror("semctl setval player");
         exit(1);
     }
-    if((semctl(sem_d, S_PLAYER_2, SETVAL, 0)) == -1){ //...inizializzazione default semafori
-        perror("semctl setval player");
-        exit(1);
-    }
 
-    p[3] = '0'; //setto l'eof a FALSE
+    p[3] = '0'; //setto l'eof a FALSE per sicurezza
 
     //creazione figli...
     if(fork() == 0)
