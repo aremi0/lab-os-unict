@@ -5,7 +5,10 @@
  * @date 2022-07-15
  * 
  * Prova di laboratorio di SO del 2020-02-21
- *      ||versione con coda e fifo.
+ *  ||  versione con coda e fifo.
+ *  ||  FIFO;
+ *  |----scrittura: con write() aperta in un 'int fifo_ds'.
+ *  |----lettura:   con fgetc() aperta in uno stream 'FILE* fifo'
  */
 
 #include <stdio.h>
@@ -46,24 +49,24 @@ typedef struct{
 } msg;
 
 void tabellone(char *pathFifo, int sem){
-    int fifo;
-    char winner[1];
+    FILE *fifo;
+    char winner;
     int p1Tmp = 0, p2Tmp = 0;
 
-    if((fifo = open(pathFifo, O_RDONLY)) == -1){ //apertura della fifo
+    if((fifo = fopen(pathFifo, "r")) == NULL){ //apertura della fifo
         perror("open giudice");
         exit(1);
     }
 
     while(1){
         WAIT(sem, S_TABELLONE); //aspetto che il giudice scriva sulla mia fifo...
-        read(fifo, winner, 1); //leggo 1byte dalla fifo...
+        winner = (char)fgetc(fifo); //leggo 1byte dalla fifo...
 
-        if(winner[0] == '1'){
+        if(winner == '1'){
             p1Tmp++;
             printf("[T] classifica temporanea: P1=%d P2=%d\n\n", p1Tmp, p2Tmp);
         }
-        else if(winner[0] == '2'){
+        else if(winner == '2'){
             p2Tmp++;
             printf("[T] classifica temporanea: P1=%d P2=%d\n\n", p1Tmp, p2Tmp);
         }
@@ -74,12 +77,12 @@ void tabellone(char *pathFifo, int sem){
     }
 
     printf("[T] classifica finale: P1=%d P2=%d\n", p1Tmp, p2Tmp);
-    winner[0] = p1Tmp > p2Tmp ? '1' : '2';
-    printf("[T] vincitore del torneo: P%c\n", winner[0]);
+    winner = p1Tmp > p2Tmp ? '1' : '2';
+    printf("[T] vincitore del torneo: P%c\n", winner);
     SIGNAL(sem, S_GIUDICE);
 
     //in chiusura...
-    close(fifo);
+    fclose(fifo);
     printf("\t\t[T] terminazione...\n");
     exit(0);
 }
