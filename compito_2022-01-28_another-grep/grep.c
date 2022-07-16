@@ -11,6 +11,8 @@
  *  P.s. stampa l'ultima parola per 2 volte :/
  */
 
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -125,7 +127,7 @@ int main(int argc, char *argv[]){
     //lettura dalla pipe...
     _pipe = fdopen(pipe_d[0], "r"); //apro la pipe in un FILE*
     while(fgets(buffer, DIMBUF, _pipe)){
-        if(strstr(buffer, argv[1]) != NULL){ //se la stringa argv[1] è contenuto in token...
+        if(strcasestr(buffer, argv[1]) != NULL){ //se la stringa argv[1] è contenuto in token...
             strcpy(messaggio.text, buffer);
             if(msgsnd(coda_d, &messaggio, sizeof(msg)-sizeof(long), 0) == -1){ //mando messaggio a writer
                 perror("msgsnd padre");
