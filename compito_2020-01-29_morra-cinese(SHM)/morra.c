@@ -5,7 +5,7 @@
  * @date 2022-07-16
  * 
  * Prova di laboratorio di SO del 2020-01-29
- *   ||  versione con shm.
+ *   ||   versione con shm.
  */
 
 #include <stdlib.h>
