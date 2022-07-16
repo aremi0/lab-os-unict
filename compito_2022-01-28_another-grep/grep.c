@@ -35,7 +35,7 @@ void reader(int pipe[2], char *path){
     int file, size;
     struct stat statbuff;
     char buffer[DIMBUF];
-    unsigned char *p; //per la mmap
+    char *p; //per la mmap
     
     if((file = open(path, O_RDONLY)) == -1){ //apertura file input
         perror("open reader");
@@ -49,7 +49,7 @@ void reader(int pipe[2], char *path){
 
     size = statbuff.st_size; //ottengo dimensione file...
     //...mappo il file in memoria centrale...
-    if((p = (unsigned char*)mmap(NULL, size, PROT_READ, MAP_SHARED, file, 0)) == NULL){
+    if((p = (char*)mmap(NULL, size, PROT_READ, MAP_SHARED, file, 0)) == NULL){
         perror("mmap reader");
         exit(1);
     }
