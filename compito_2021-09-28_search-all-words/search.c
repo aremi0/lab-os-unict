@@ -25,18 +25,18 @@
 #define S_Wi 1
 
 /***
- *      ||Inter-Process-Comunication TABLE :
- *  |--- [P] crea pipe_d e SHM
- *  |--- [READER] => [WRITER[i]] ==> shm[DIMBUF] => ogni riga file
- *  |--- [READER] => [OUTPUT] ==> pipe => solo riga matchata
+ *  ||Inter-Process-Comunication TABLE :
+ *  |--- [P] crea pipe_d e SHM.
+ *  |--- [READER] manda ai [WRITER[i]] un shm+1[DIMBUF] per ogni riga del file.
+ *  |--- [READER] manda a [OUTPUT] sulla 'pipe' solo riga matchata.
 */
 
-/***                  _____
- *      ||SHM : ==> (|char*|)
- *  |--- p[0] =>  char match   *(shm+0) => in questa locazione, inizilmente posta a argc-2, i processi 
- *  |--- p+1  =>  DIMBUF char*             WRITER[i] faranno un decremento -1 (con opportuno cast a char)
- *        |                                se trovano un match. Il processo READER dovra' controllare
- *        -> qui ci salvo la riga.         che p[0] == argc-2 (ovvero uguale al numero di WRITER[i]).
+/***
+ *  ||SHM : ==> (char*)
+ *  |--- p[0] =>  char match   *(shm+0)  ====>  in questa locazione, inizialmente posta a argc-2, i processi WRITER[i]
+ *  |--- p+1  =>  DIMBUF char*                  faranno un decremento -1 (con opportuno cast a char) se trovano un match.
+ *        |                                     Il processo READER dovra' controllare che 'p[0] == (char) 0'
+ *        -> qui ci salvo la riga.|             Ovvero che tutti i writer hanno matchato...
 */
 
 int WAIT(int sem_d, int numSem){
