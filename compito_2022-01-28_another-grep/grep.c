@@ -11,7 +11,7 @@
  *  P.s. stampa l'ultima parola per 2 volte :/
  */
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE //serve per strcasestr
 
 #include <stdlib.h>
 #include <stdio.h>
