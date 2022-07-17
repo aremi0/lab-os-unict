@@ -6,9 +6,11 @@
  * 
  * Prova di laboratorio di SO del 2020-02-21
  *  ||  versione con coda e fifo.
+ *  ||  in questa versione le partite patte vengono reiterate.
+ * 
  *  ||  FIFO;
- *  |----scrittura: con write() aperta in un 'int fifo_ds'.
- *  |----lettura:   con fgetc() aperta in uno stream 'FILE* fifo'
+ *  |----scrittura: con write() aperta in un 'int fifo_d'.
+ *  |----lettura:   con fputc() aperta in uno stream 'FILE* fifo'
  */
 
 #include <stdio.h>
@@ -140,7 +142,7 @@ void giudice(int coda, char *pathFifo, int sem, int totPartite){
             exit(1);
         }
 
-        if((winner[0] = calcolaVincitore(messaggio1, messaggio2)) == 'e'){
+        if((winner[0] = calcolaVincitore(messaggio1, messaggio2)) == 'e'){ //patta... verrà reiterata...
             printf("[G] partita n.%d patta e quindi da ripetere\n", currentPartita);
             continue;
         }
