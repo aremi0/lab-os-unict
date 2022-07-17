@@ -1,11 +1,8 @@
 /**
  * @file grep.c
- * @author your name (you@domain.com)
- * @brief 
+ * @author aremi
  * @version 0.1
  * @date 2022-07-15
- * 
- * @copyright Copyright (c) 2022
  * 
  * Prova di laboratorio di SO del 2022-01-28
  *  P.s. stampa l'ultima parola per 2 volte :/
