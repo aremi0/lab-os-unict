@@ -6,7 +6,7 @@
  * 
  * Prova di laboratorio di SO del 2020-01-29
  *   ||  - versione con shm.
- *   
+ *   ||  - in questa versione le partite patte non vengono reiterate.
  */
 
 #include <stdlib.h>
