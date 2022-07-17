@@ -5,7 +5,8 @@
  * @date 2022-07-16
  * 
  * Prova di laboratorio di SO del 2020-01-29
- *   ||   versione con shm.
+ *   ||  - versione con shm.
+ *   
  */
 
 #include <stdlib.h>
@@ -136,16 +137,16 @@ void giudice(int sem, char *shm, int totPartite){
         WAIT(sem, S_GIUDICE);
         WAIT(sem, S_GIUDICE); //...aspetto che i figli giochino le loro mosse
 
-        if((*winner = calcolaVincitore(*mossaP1, *mossaP2)) == 'e'){ //patta...
-            printf("[G] partita n.%d patta e quindi da ripetere\n", currentPartita);
+        if((*winner = calcolaVincitore(*mossaP1, *mossaP2)) == 'e'){ //patta... verrà ignorata
+            printf("[G] partita n.%d patta, prossima...\n", currentPartita);
         }
         else{
             printf("[G] partita n.%d vinta da P%c\n", currentPartita,*winner);
             SIGNAL(sem, S_TABELLONE);
             WAIT(sem, S_GIUDICE); //aspetto che il tabellone scriva le sue cose
-            currentPartita++;
         }
 
+        currentPartita++;
         SIGNAL(sem, S_PLAYER);
         SIGNAL(sem, S_PLAYER); //...risveglio i giocatori...
     }
@@ -178,7 +179,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    if((sem_d = semget(IPC_PRIVATE, 3, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione semafori
+    if((sem_d = semget(IPC_PRIVATE, 4, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione semafori
         perror("semget");
         exit(1);
     }
@@ -195,7 +196,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    p[3] = '0'; //setto l'eof a FALSE per sicurezza
+    p[3] = '0'; //setto l'eof a FALSE
 
     //creazione figli...
     if(fork() == 0)
