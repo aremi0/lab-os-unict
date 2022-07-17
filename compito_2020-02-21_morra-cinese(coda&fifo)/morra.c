@@ -10,7 +10,7 @@
  * 
  *  ||  FIFO;
  *  |----scrittura: con write() aperta in un 'int fifo_d'.
- *  |----lettura:   con fputc() aperta in uno stream 'FILE* fifo'
+ *  |----lettura:   con fgetc() aperta in uno stream 'FILE* fifo'
  */
 
 #include <stdio.h>
