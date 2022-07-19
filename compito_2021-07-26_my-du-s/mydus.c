@@ -83,49 +83,21 @@ int recursiveScan(char* globalFilePath, char* path, int sem, char *p){
         }
     }
 
-    return chdir(".."); //
+    return chdir(".."); //ritorno la directory di prima...
 }
 
 void scanner(int shm, int sem, char *path){
-    DIR dir;
-    struct dirent *entry;
-    struct stat statbuf;
     char *p, globalFilePath[MAX_PATH_LEN];
 
     if((p = (char*)shmat(shm, NULL, 0)) == (char*)-1){ //attach al segmento condiviso
         perror("shmat scanner");
         exit(1);
     }
-    if((dir = opendir(path)) == NULL){ //apro la directory del path
-        perror("opendir scanner");
-        exit(1);
-    }
-    if((chdir(path)) == -1){ //cambio la current-working-directory alla directory da scansionare...
-        perror("chdir scanner");
-        exit(1);
-    }
 
     strcpy(globalFilePath, "/");
     strcat(globalFilePath, path);
 
-    while((entry = readdir(dir))){ //per ogni file contenuto nel path di scanner[i]...
-        strcat(globalFilePath, "/");
-        stat(entry->d_name, &statbuf); //raccolgo informazione sul file corrente
-
-        if(S_ISDIR(statbuf.st_mode) && ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))) //...se è "." o ".." vado avanti...
-            continue;
-
-        if(S_ISDIR(statbuf.st_mode)) //...se è una directory avvio ricorsione su essa...
-            recursiveScan(globalFilePath, entry->d_name);
-
-        if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
-            strcat(p, entry->d_name); //...concateno il path del file alla shm...
-            SIGNAL(sem, S_STATER);
-            WAIT(sem, MUTEX); //... e aspetto che stater elabori l'informazione
-        }
-    }
-
-    recursiveScan(globalFilePath, path);
+    recursiveScan(globalFilePath, path, sem, p);
     
 
 }
