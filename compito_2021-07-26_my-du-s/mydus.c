@@ -23,17 +23,20 @@
 #define MAX_PATH_LEN 512
 
 #define S_bho 0
-#define S_bho1 1
+#define S_Si 1
 
 /***
- *      ||SHM table:    (char *)
- *  | p[0]
- *  | p
+ *      ||SHM :    (char **)
+ *  | p+0 = eof     ----> eof p[0] ==> '1'
+ *  | p+1 ==> usato da scanner[0] ==> path-file
+ *  | p+2 ==> usato da scanner[1] ==> path-file
+ *  | ...
 */
 
 typedef struct{
     long type;
-    char text[MAX_PATH_LEN];
+    int eof;
+    char path[MAX_PATH_LEN];
 } msg;
 
 int WAIT(int sem_des, int semNum){
@@ -46,6 +49,59 @@ int SIGNAL(int sem_des, int semNum){
     return semop(sem_des, op, 1);
 }
 
+int recursiveScan(char *p, int sem, char *path){
+    DIR dir;
+    struct dirent *entry;
+    struct stat statbuf;
+
+    if((dir = opendir(path)) == NULL){ //apro la directory del path
+        perror("opendir scanner");
+        exit(1);
+    }
+    if((chdir(path)) == -1){ //cambio la current-working-directory alla directory da scansionare...
+        perror("chdir scanner");
+        exit(1);
+    }
+
+    strcat(p, "/");
+    
+    while((entry = readdir(dir))){ //ottengo puntatore al primo file della directory da scansionare...
+        stat(entry->d_name, &statbuf); //raccolgo informazione sul file corrente
+        if(S_ISDIR(statbuf.st_mode) && ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))) //salto le directory "." e ".."
+            continue;
+
+        if(S_ISDIR(statbuf.st_mode)){ //se è una directory avvio ricorsione su essa...
+            strcat(p, entry->d_name); //...concateno il path della directory alla shm...
+            recursiveScan(p, entry->d_name); //...ed entro ricorsivamente in essa
+        }
+
+        if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
+            strcat(p, entry->d_name); //...concateno il path del file alla shm...
+            SIGNAL(sem, S_bho);
+            WAIT(sem, S_Si); //... e aspetto che stater elabori l'informazione
+        }
+    }
+
+
+}
+
+void scanner(int shm, int sem, char *path, int id){
+    DIR dir;
+    struct dirent *entry;
+    struct stat statbuf;
+    char **p;
+
+    if((p = (char**)shmat(shm, NULL, 0)) == (char**)-1){ //attach al segmento condiviso
+        perror("shmat scanner");
+        exit(1);
+    }
+
+    strcpy(p[id], "/");
+    strcat(p[id], path);
+    recursiveScan(p[id], sem, path);
+
+}
+
 int main(int argc, char *argv[]){
     int shm_d, sem_d, coda_d;
 
@@ -54,7 +110,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    if((shm_d = shmget(IPC_PRIVATE, sizeof(char) * MAX_PATH_LEN, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione segmento condiviso
+    if((shm_d = shmget(IPC_PRIVATE, sizeof(char) * argc * MAX_PATH_LEN, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione segmento condiviso
         perror("shmget");
         exit(1);
     }
@@ -70,17 +126,22 @@ int main(int argc, char *argv[]){
         perror("semctl setval bho");
         exit(1);
     }
-    if((semctl(sem_d, S_bho1, SETVAL, 0)) == 1){ //...inizializzazione default semafori
+    if((semctl(sem_d, S_Si, SETVAL, 0)) == 1){ //...inizializzazione default semafori
         perror("semctl setval bho1");
         exit(1);
     }
 
     //creazione figli...
     if(fork() == 0)
-        stater(p, sem);
+        stater(shm_d, sem);
     for(int i = 1; i < argc; i++)
         if(fork() == 0)
-            scanner(p, sem, argv[i]);
+            scanner(shm_d, sem, argv[i], i);
+
+
+
+
+
 
     for(int i = 0; i < argc; i++)
         wait(NULL);
