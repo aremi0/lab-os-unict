@@ -23,7 +23,7 @@
 #define MAX_PATH_LEN 4096
 
 #define S_STATER 0      //sync
-#define MUTEX 1         //mutex-sync
+#define MUTEX 1         //mutex
 
 typedef struct{
     unsigned eof;
@@ -53,7 +53,7 @@ void scanner(char id, int shm, int sem, char *path, char casoBase){
     struct dirent *entry;
     shm_msg *p;
 
-    if((p = (shm_msg*)shmat(shm, NULL, 0)) == (shm_msg*)-1){ //attach al segmento condiviso path
+    if((p = (shm_msg*)shmat(shm, NULL, 0)) == (shm_msg*)-1){ //attach al segmento condiviso
         perror("shmat scanner");
         exit(1);
     }
@@ -63,9 +63,9 @@ void scanner(char id, int shm, int sem, char *path, char casoBase){
     }
 
     while((entry = readdir(dir))){ //mentre punto un file della directory...
-        if((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) //se punto la dir "." o ".." vado avanti
+        if((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) //se punto dir "." o ".." vado avanti
             continue;
-        else if(entry->d_type == DT_DIR){ //se è una qualsiasi altra dir avvio ricorsione su di essa...
+        else if(entry->d_type == DT_DIR){ //se punto qualsiasi altra dir => ricorsione su di essa...
             char tmp[MAX_PATH_LEN];
             sprintf(tmp, "%s/%s", path, entry->d_name);
             scanner(id, shm, sem, tmp, 0);
@@ -74,14 +74,14 @@ void scanner(char id, int shm, int sem, char *path, char casoBase){
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             sprintf(p->pathFile, "%s/%s", path, entry->d_name);
             p->eof = 0;
-            p->id = id; //...scrivo il path del file in shm
+            p->id = id; //...scrivo: path-file, id scanner, eof=false
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare... rilascerà lui la shm
         }
     }
 
     closedir(dir);
 
-    if(casoBase){
+    if(casoBase){ //caso base, ovvero path=rootDirectory... nel main casoBase=1. Dentro questo if sono uscito dal while nella rootDirectory =>caso base
         WAIT(sem, MUTEX);
         p->eof = 1;
         SIGNAL(sem, S_STATER);
@@ -100,26 +100,26 @@ void stater(int shm, int sem, int coda, int numScanner){
     messaggio.eof = 0;
     messaggio.type = 1;
 
-    if((p = (shm_msg*)shmat(shm, NULL, 0)) == (shm_msg*)-1){ //attach al segmento condiviso path
+    if((p = (shm_msg*)shmat(shm, NULL, 0)) == (shm_msg*)-1){ //attach al segmento condiviso
         perror("shmat stater");
         exit(1);
     }
 
     while(1){
-        WAIT(sem, S_STATER); //aspetto che uno scanner mi confermi la presenza di un path da elaborare in shm...
+        WAIT(sem, S_STATER); //aspetto che uno scanner mi segnali la presenza di un path da elaborare. Ho la mutua esclusione...
 
-        if(p->eof){ //se è true mi hanno svegliato per segnalarmi una exit() e non un nuovo path
+        if(p->eof){ //se è true mi hanno svegliato per segnalarmi una exit() e non un nuovo path...
             eofCounter++;
 
-            if(eofCounter == numScanner)
+            if(eofCounter == numScanner) //se era l'ultimo scanner[i] esco...
                 break;
             else{
-                SIGNAL(sem, MUTEX); //rilascio shm e continuo al prossimo ciclo di attesa...
+                SIGNAL(sem, MUTEX); //altrimenti rilascio shm e continuo al prossimo ciclo di attesa...
                 continue;
             }
         }
     
-
+        //...altrimenti c'è un nuovo path nella shm
         lstat(p->pathFile, &statbuf); //ottengo info sul file...
         messaggio.id = p->id;
         messaggio.nBlocks = statbuf.st_blocks;
@@ -132,7 +132,6 @@ void stater(int shm, int sem, int coda, int numScanner){
     }
 
     messaggio.eof = 1;
-
     if((msgsnd(coda, &messaggio, sizeof(msg)-sizeof(long), 0)) == -1){ //mando eof al padre...
         perror("msgsnd stater");
         exit(1);
@@ -151,8 +150,6 @@ int main(int argc, char *argv[]){
 
     for(int i = 0; i < argc-1; i++)
         scannerBlocks[i] = 0;
-
-    //memset(&scannerBlocks, 0, sizeof(scannerBlocks)); //azzero vettore dei risultati finali scannerBlocks
 
     if(argc < 2){
         printf("Uso: %s <path-1> <path-2> ...\n", argv[0]);
@@ -185,7 +182,7 @@ int main(int argc, char *argv[]){
         stater(shm_d, sem_d, coda_d, argc-1);
     for(int i = 1; i < argc; i++)
         if(fork() == 0)
-            scanner(i-1, shm_d, sem_d, argv[i], 1);
+            scanner(i-1, shm_d, sem_d, argv[i], 1); //i-1 => id del scanner[i]    || 1 => caso base rootDirectory => alla prima chiamata = true
 
 
     while(1){
@@ -198,13 +195,6 @@ int main(int argc, char *argv[]){
             break;
 
         scannerBlocks[messaggio.id] += messaggio.nBlocks;
-
-        // for(int i = 0; i < argc-1; i++){ //salvo il numero di blocchi di uno specifico writer[i] path in un vettore
-        //     if(strstr(messaggio.pathFile, argv[i+1]) != NULL){ //bello sto metodo, ma lo sai cosa comporta vero?
-        //         scannerBlocks[i] += messaggio.nBlocks / 2; //sto diviso due non lo so perchè...
-        //         break;
-        //     }
-        // }
     }
 
     for(int i = 0; i < argc; i++)
