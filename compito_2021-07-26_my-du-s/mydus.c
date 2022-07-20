@@ -85,7 +85,6 @@ void recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             strcpy(p, currentPath);
             strcat(p, entry->d_name); //...scrivo il path del file in shm
-//printf("___debug__block[%ld]____writer__file: %s\n", statbuf.st_blocks, p);
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
             WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
             SIGNAL(sem, MUTEX); //rilascio shared memory
@@ -157,7 +156,6 @@ void stater(int shm_p, int shm_c, int sem, int coda, int numScanner){
 
         lstat(p_path, &statbuf); //ottengo info sul file...
         strcpy(messaggio.pathFile, p_path);
-//printf("___debug_stater__nblock__ %ld_______path: %s\n", statbuf.st_blocks, messaggio.pathFile);
         messaggio.nBlocks = statbuf.st_blocks;
 
         if((msgsnd(coda, &messaggio, sizeof(msg)-sizeof(long), 0)) == -1){ //mando messaggio al padre...
