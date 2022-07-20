@@ -180,7 +180,7 @@ int terminal(size_t directoriesCount, char** paths, message_t* msgZone, int sema
     while(1) {
         WAIT(semaphoresDescriptor, TERMINAL_READ_SEMID);
 
-        printf("[Terminale] Sto leggendo la memoria... (%u, %s, %lu)\n", msgZone->scannerId, msgZone->path, msgZone->size);
+        //printf("[Terminale] Sto leggendo la memoria... (%u, %s, %lu)\n", msgZone->scannerId, msgZone->path, msgZone->size);
         if(strcmp(msgZone->path, QUIT_MSG_STR) == 0) {
             //printf("[Terminale] Messaggio d'uscita\n");
             break;
