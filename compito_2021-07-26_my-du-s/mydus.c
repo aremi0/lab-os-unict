@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-#define MAX_PATH_LEN 512
+#define MAX_PATH_LEN 1024
 
 #define S_STATER 0
 #define MUTEX 1
@@ -52,6 +52,7 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
     DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
+    char previousDir[MAX_PATH_LEN];
 
     if((dir = opendir(rootPath)) == NULL){ //apro la directory del path
         perror("opendir scanner recursion");
@@ -70,20 +71,20 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
             continue;
 
         if(S_ISDIR(statbuf.st_mode)){ //...se è una directory avvio ricorsione su di essa...
+            strcpy(previousDir, currentPath); //salvo la dir attuale per quando ritorno dalla ricorsione
             strcat(currentPath, entry->d_name);
-printf("\t\t___debug__writer[%s]___entro-nella-subdir<%s>___\n", rootPath, entry->d_name);
             recursiveScan(currentPath, entry->d_name, sem, p);
+            strcpy(currentPath, previousDir);
         }
 
         if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
-printf("___debug__writer[%s]___file<%s>___\n", rootPath, entry->d_name);
-/*            WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
+            //WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             strcpy(p+1, currentPath);
-            strcat(p+1, "/");
             strcat(p+1, entry->d_name); //...scrivo il path del file in shm
-            SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
-            WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
-            SIGNAL(sem, MUTEX); //rilascio shared memory*/
+printf("___debug__writer[%s]___\n\t\tfile<%s>___\n", rootPath, p+1);
+            //SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
+            //WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
+            //SIGNAL(sem, MUTEX); //rilascio shared memory
         }
     }
 
@@ -98,7 +99,6 @@ void scanner(int shm, int sem, char *rootPath){
         exit(1);
     }
 
-    strcpy(currentPath, "/");
     strcat(currentPath, rootPath);
 
     recursiveScan(currentPath, rootPath, sem, p);
