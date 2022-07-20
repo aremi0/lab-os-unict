@@ -23,8 +23,7 @@
 #define MAX_PATH_LEN 2048
 
 #define S_STATER 0      //sync
-#define MUTEX 1         //mutex
-#define S_SCANNER_i 2   //sync
+#define MUTEX 1         //mutex-sync
 
 /***
  *      ||SHM_PATH :    (char *)
@@ -71,23 +70,19 @@ void recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
     while((entry = readdir(dir))){ //mentre punto un file della directory...
         lstat(entry->d_name, &statbuf); //raccolgo info sul file puntato
 
-        if(S_ISDIR(statbuf.st_mode)){ //...se è una directory avvio ricorsione su di essa...
-            if((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) //...a meno che non si tratta di "." o "..", ...
-                continue;
-
+        if((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) //se punto la dir "." o ".." vado avanti
+            continue;
+        else if(S_ISDIR(statbuf.st_mode)){ //se è una qualsiasi altra dir avvio ricorsione su di essa...
             strcpy(previousDir, currentPath); //salvo la dir attuale per quando ritorno dalla ricorsione
             strcat(currentPath, entry->d_name);
             recursiveScan(currentPath, entry->d_name, sem, p);
             strcpy(currentPath, previousDir); //sono uscito dalla sotto-directory, ripristino path
         }
-
-        if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
+        else if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             strcpy(p, currentPath);
             strcat(p, entry->d_name); //...scrivo il path del file in shm
-            SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
-            WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
-            SIGNAL(sem, MUTEX); //rilascio shared memory
+            SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare... rilascerà lui la shm
         }
     }
 
@@ -145,8 +140,8 @@ void stater(int shm_p, int shm_c, int sem, int coda, int numScanner){
     *p_count = numScanner;
     SIGNAL(sem, MUTEX);
 
-    for(int i = 0; i < numScanner; i++)
-        SIGNAL(sem, S_SCANNER_i); //dopo aver settato eof sveglio i scanner[i]
+    // for(int i = 0; i < numScanner; i++)
+    //     SIGNAL(sem, MUTEX); //dopo aver settato eof sveglio i scanner[i]
 
     while(1){
         WAIT(sem, S_STATER); //aspetto che uno scanner mi confermi la presenza di un path da elaborare in shm...
@@ -163,7 +158,7 @@ void stater(int shm_p, int shm_c, int sem, int coda, int numScanner){
             exit(1);
         }
 
-        SIGNAL(sem, S_SCANNER_i);
+        SIGNAL(sem, MUTEX);
     }
 
 
@@ -204,7 +199,7 @@ int main(int argc, char *argv[]){
         perror("shmat");
         exit(1);
     }
-    if((sem_d = semget(IPC_PRIVATE, 3, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
+    if((sem_d = semget(IPC_PRIVATE, 2, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
         perror("semget");
         exit(1);
     }
@@ -212,12 +207,8 @@ int main(int argc, char *argv[]){
         perror("semctl setval bho");
         exit(1);
     }
-    if((semctl(sem_d, S_SCANNER_i, SETVAL, 0)) == 1){
-        perror("semctl setval bho");
-        exit(1);
-    }
     if((semctl(sem_d, MUTEX, SETVAL, 1)) == 1){ //...inizializzazione default semafori
-        perror("semctl setval bho1");
+        perror("semctl setval bho");
         exit(1);
     }
 
@@ -226,7 +217,7 @@ int main(int argc, char *argv[]){
         stater(shm_path_d, shm_count_d, sem_d, coda_d, argc-1);
     for(int i = 1; i < argc; i++)
         if(fork() == 0){
-            WAIT(sem_d, S_SCANNER_i); //aspetto che stater setti l'eof=numScanner prima di startare
+//            WAIT(sem_d, MUTEX); //aspetto che stater setti l'eof=numScanner prima di startare
             scanner(shm_path_d, shm_count_d, sem_d, argv[i]);
         }
 
