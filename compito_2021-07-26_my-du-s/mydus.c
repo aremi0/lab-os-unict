@@ -31,7 +31,7 @@
  *  | p+0 ==> usato da scanner[i] ==> path-di-ogni-file ==> race conditions => MUTEX
  * 
  *      ||SHM_COUNTER :    (int *)
- *  | p+0 ==> usato da scanner[i] ==> numero di scanner[i] ==> race conditions => MUTEX
+ *  | p+0 ==> usato da scanner[i] ==> numero di scanner[i] da decrementare ==> race conditions => MUTEX
 */
 
 typedef struct{
@@ -68,7 +68,7 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
     strcat(currentPath, "/"); //predispongo currentPath alla concatenazione...
     
     while((entry = readdir(dir))){ //mentre punto un file della directory...
-        stat(entry->d_name, &statbuf); //raccolgo info sul file puntato
+        lstat(entry->d_name, &statbuf); //raccolgo info sul file puntato
 
         if(S_ISDIR(statbuf.st_mode) && ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))) //...se è "." o ".." vado avanti...
             continue;
@@ -82,9 +82,9 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
 
         if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
-            strcpy(p+1, currentPath);
-            strcat(p+1, entry->d_name); //...scrivo il path del file in shm
-//printf("___debug__writer[%s]___\n\t\tfile: %s\n", rootPath, p+1);
+            strcpy(p, currentPath);
+            strcat(p, entry->d_name); //...scrivo il path del file in shm
+printf("___debug__writer[%s]___\n\t\tfile: %s\n", rootPath, p);
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
             WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
             SIGNAL(sem, MUTEX); //rilascio shared memory
@@ -114,11 +114,13 @@ void scanner(int shm_p, int shm_c, int sem, char *rootPath){
     
     WAIT(sem, MUTEX);
     *p_c -= 1;
-    SIGNAL(sem, S_STATER); //segnalo eof a
+    if(*p_c == 0)
+        SIGNAL(sem, S_STATER); //segnalo eof a
     SIGNAL(sem, MUTEX);
 
-    shmdt(p);
-    printf("\t\t[Wi] terminazione...\n");
+    shmdt(p_c);
+    shmdt(p_p);
+    printf("X\t\t[Wi] terminazione...\n");
     exit(0);
 }
 
@@ -152,9 +154,9 @@ void stater(int shm_p, int shm_c, int sem, int coda, int nWi){
         if(*p_c == 0)
             break;
 
-        stat(p+1, &statbuf); //ottengo info sul file...
-        strcpy(messaggio.pathFile, p+1);
-printf("___debug_stater__nblock__ %ld\n", statbuf.st_blocks);
+        lstat(p_p, &statbuf); //ottengo info sul file...
+        strcpy(messaggio.pathFile, p_p);
+//printf("___debug_stater__nblock__ %ld\n", statbuf.st_blocks);
         messaggio.nBlocks = statbuf.st_blocks;
 
         if((msgsnd(coda, &messaggio, sizeof(msg)-sizeof(long), 0)) == -1){ //mando messaggio al padre...
@@ -173,8 +175,9 @@ printf("___debug_stater__nblock__ %ld\n", statbuf.st_blocks);
     }
 
     //in chiusura...
-    shmdt(p);
-    printf("\t\t[STATER] terminazione...\n");
+    shmdt(p_p);
+    shmdt(p_c);
+    printf("X\t\t[STATER] terminazione...\n");
     exit(0);
 }
 
@@ -256,6 +259,6 @@ int main(int argc, char *argv[]){
     shmctl(shmPath_d, IPC_RMID, NULL);
     semctl(sem_d, 0, IPC_RMID, 0);
 
-    printf("\t\t[PADRE] terminazione...\n");
+    printf("X\t\t[PADRE] terminazione...\n");
     exit(0); 
 }
