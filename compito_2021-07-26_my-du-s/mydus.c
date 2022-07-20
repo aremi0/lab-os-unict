@@ -49,15 +49,15 @@ int SIGNAL(int sem_des, int semNum){
 }
 
 int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
-    DIR dir;
+    DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
 
-    if((dir = opendir(path)) == NULL){ //apro la directory del path
+    if((dir = opendir(rootPath)) == NULL){ //apro la directory del path
         perror("opendir scanner recursion");
         exit(1);
     }
-    if((chdir(path)) == -1){ //cambio la current-working-directory alla directory da scansionare...
+    if((chdir(rootPath)) == -1){ //cambio la current-working-directory alla directory da scansionare...
         perror("chdir scanner recursion");
         exit(1);
     }
@@ -71,17 +71,19 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
 
         if(S_ISDIR(statbuf.st_mode)){ //...se è una directory avvio ricorsione su di essa...
             strcat(currentPath, entry->d_name);
-            recursiveScan(currentPath, entry->d_name);
+printf("\t\t___debug__writer[%s]___entro-nella-subdir<%s>___\n", rootPath, entry->d_name);
+            recursiveScan(currentPath, entry->d_name, sem, p);
         }
 
         if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
-            WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
+printf("___debug__writer[%s]___file<%s>___\n", rootPath, entry->d_name);
+/*            WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             strcpy(p+1, currentPath);
             strcat(p+1, "/");
             strcat(p+1, entry->d_name); //...scrivo il path del file in shm
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
             WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
-            SIGNAL(sem, MUTEX); //rilascio shared memory
+            SIGNAL(sem, MUTEX); //rilascio shared memory*/
         }
     }
 
@@ -120,11 +122,15 @@ int main(int argc, char *argv[]){
         perror("shmat");
         exit(1);
     }
-    if((sem_d = semget(IPC_PRIVATE, 2, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
+    if((sem_d = semget(IPC_PRIVATE, 3, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
         perror("semget");
         exit(1);
     }
     if((semctl(sem_d, S_STATER, SETVAL, 0)) == 1){
+        perror("semctl setval bho");
+        exit(1);
+    }
+    if((semctl(sem_d, S_SCANNER_i, SETVAL, 0)) == 1){
         perror("semctl setval bho");
         exit(1);
     }
@@ -134,11 +140,11 @@ int main(int argc, char *argv[]){
     }
 
     //creazione figli...
-    if(fork() == 0)
-        stater(shm_d, sem);
+    /*if(fork() == 0)
+        stater(shm_d, sem_d);*/
     for(int i = 1; i < argc; i++)
         if(fork() == 0)
-            scanner(shm_d, sem, argv[i]);
+            scanner(shm_d, sem_d, argv[i]);
 
 
 
