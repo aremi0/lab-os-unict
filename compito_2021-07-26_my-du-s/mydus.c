@@ -51,7 +51,7 @@ int SIGNAL(int sem_des, int semNum){
     return semop(sem_des, op, 1);
 }
 
-int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
+void recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
     DIR *dir;
     struct dirent *entry;
     struct stat statbuf;
@@ -65,15 +65,17 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
         perror("chdir scanner recursion");
         exit(1);
     }
+
     strcat(currentPath, "/"); //predispongo currentPath alla concatenazione...
     
     while((entry = readdir(dir))){ //mentre punto un file della directory...
         lstat(entry->d_name, &statbuf); //raccolgo info sul file puntato
 
-        if(S_ISDIR(statbuf.st_mode) && ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))) //...se è "." o ".." vado avanti...
-            continue;
-
         if(S_ISDIR(statbuf.st_mode)){ //...se è una directory avvio ricorsione su di essa...
+
+            if((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0)) //...se è "." o ".." vado avanti...
+                continue;
+
             strcpy(previousDir, currentPath); //salvo la dir attuale per quando ritorno dalla ricorsione
             strcat(currentPath, entry->d_name);
             recursiveScan(currentPath, entry->d_name, sem, p);
@@ -84,15 +86,16 @@ int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
             strcpy(p, currentPath);
             strcat(p, entry->d_name); //...scrivo il path del file in shm
-printf("___debug__writer[%s]___\n\t\tfile: %s\n", rootPath, p);
+//printf("___debug__block[%ld]____writer__file: %s\n", statbuf.st_blocks, p);
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
             WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
             SIGNAL(sem, MUTEX); //rilascio shared memory
         }
     }
 
+    chdir("..");
     closedir(dir);
-    return chdir(".."); //ritorno la directory di prima...
+    return;
 }
 
 void scanner(int shm_p, int shm_c, int sem, char *rootPath){
@@ -109,7 +112,6 @@ void scanner(int shm_p, int shm_c, int sem, char *rootPath){
     }
 
     strcat(currentPath, rootPath);
-
     recursiveScan(currentPath, rootPath, sem, p_p);
     
     WAIT(sem, MUTEX);
@@ -186,7 +188,7 @@ int main(int argc, char *argv[]){
     msg messaggio;
     long scannerBlocks[argc-1];
 
-    memset(scannerBlocks, 0, sizeof(scannerBlocks));
+    memset(&scannerBlocks, 0, sizeof(scannerBlocks));
 
     if(argc < 2){
         printf("Uso: %s <path-1> <path-2> ...\n", argv[0]);
@@ -243,7 +245,7 @@ int main(int argc, char *argv[]){
 
         for(int i = 0; i < argc-1; i++){ //salvo il numero di blocchi di uno specifico writer[i] path in un vettore
             if(strstr(messaggio.pathFile, argv[i+1]) != NULL){
-                scannerBlocks[i] += messaggio.nBlocks;
+                scannerBlocks[i] += messaggio.nBlocks / 2;
                 break;
             }
         }
