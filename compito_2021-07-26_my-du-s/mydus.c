@@ -29,13 +29,13 @@
 /***
  *      ||SHM :    (char **)
  *  | p+0 = eof     ----> eof p[0] ==> '1'
- *  | p+1 ==> usato da scanner[i] ==> path-singolo-file-contenuto ==> race conditions => MUTEX
+ *  | p+1 ==> usato da scanner[i] ==> path-file ==> race conditions => MUTEX
 */
 
 typedef struct{
     long type;
     int eof;
-    char path[MAX_PATH_LEN];
+    char pathFile[MAX_PATH_LEN];
 } msg;
 
 int WAIT(int sem_des, int semNum){
@@ -48,7 +48,7 @@ int SIGNAL(int sem_des, int semNum){
     return semop(sem_des, op, 1);
 }
 
-int recursiveScan(char* globalFilePath, char* path, int sem, char *p){
+int recursiveScan(char* currentPath, char* rootPath, int sem, char *p){
     DIR dir;
     struct dirent *entry;
     struct stat statbuf;
@@ -61,22 +61,24 @@ int recursiveScan(char* globalFilePath, char* path, int sem, char *p){
         perror("chdir scanner recursion");
         exit(1);
     }
-
-    while((entry = readdir(dir))){ //ottengo puntatore al primo file della directory...
-        strcat(globalFilePath, path);
-        strcat(globalFilePath, "/");
-        stat(entry->d_name, &statbuf); //raccolgo informazione sul file corrente
+    strcat(currentPath, "/"); //predispongo currentPath alla concatenazione...
+    
+    while((entry = readdir(dir))){ //mentre punto un file della directory...
+        stat(entry->d_name, &statbuf); //raccolgo info sul file puntato
 
         if(S_ISDIR(statbuf.st_mode) && ((strcmp(entry->d_name, ".") == 0) || (strcmp(entry->d_name, "..") == 0))) //...se è "." o ".." vado avanti...
             continue;
 
-        if(S_ISDIR(statbuf.st_mode)) //...se è una directory avvio ricorsione su essa...
-            recursiveScan(globalFilePath, entry->d_name);
+        if(S_ISDIR(statbuf.st_mode)){ //...se è una directory avvio ricorsione su di essa...
+            strcat(currentPath, entry->d_name);
+            recursiveScan(currentPath, entry->d_name);
+        }
 
         if(S_ISREG(statbuf.st_mode)){ //se è un file regolare...
-            strcat(globalFilePath, entry->d_name); //...concateno il path del file alla variabile locale
             WAIT(sem, MUTEX); //chiedo permesso di scrivere nella shm
-            strcpy(p+1, globalFilePath); //scrivo il path globale del file
+            strcpy(p+1, currentPath);
+            strcat(p+1, "/");
+            strcat(p+1, entry->d_name); //...scrivo il path del file in shm
             SIGNAL(sem, S_STATER); //segnalo a stater che è presente un path da elaborare...
             WAIT(sem, S_SCANNER_i); //aspetto che stater finisca di elaborare
             SIGNAL(sem, MUTEX); //rilascio shared memory
@@ -86,18 +88,18 @@ int recursiveScan(char* globalFilePath, char* path, int sem, char *p){
     return chdir(".."); //ritorno la directory di prima...
 }
 
-void scanner(int shm, int sem, char *path){
-    char *p, globalFilePath[MAX_PATH_LEN];
+void scanner(int shm, int sem, char *rootPath){
+    char *p, currentPath[MAX_PATH_LEN];
 
     if((p = (char*)shmat(shm, NULL, 0)) == (char*)-1){ //attach al segmento condiviso
         perror("shmat scanner");
         exit(1);
     }
 
-    strcpy(globalFilePath, "/");
-    strcat(globalFilePath, path);
+    strcpy(currentPath, "/");
+    strcat(currentPath, rootPath);
 
-    recursiveScan(globalFilePath, path, sem, p);
+    recursiveScan(currentPath, rootPath, sem, p);
     
 
 }
