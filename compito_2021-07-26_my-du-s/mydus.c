@@ -244,7 +244,7 @@ int main(int argc, char *argv[]){
 
         for(int i = 0; i < argc-1; i++){ //salvo il numero di blocchi di uno specifico writer[i] path in un vettore
             if(strstr(messaggio.pathFile, argv[i+1]) != NULL){ //bello sto metodo, ma lo sai cosa comporta vero?
-                scannerBlocks[i] += messaggio.nBlocks / 2;
+                scannerBlocks[i] += messaggio.nBlocks / 2; //sto diviso due non lo so perchè...
                 break;
             }
         }
