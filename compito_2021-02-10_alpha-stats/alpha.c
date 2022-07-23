@@ -112,8 +112,9 @@ int main(int argc, char *argv[]){
 
     close(input); //chiudo il file, tanto è in RAM
 
-    for(int i = 0; i < 26; i++) //azzero la shmStats...
-        shmStats[i] = 0;
+    memset(shmStats, 0, sizeof(char)*26); //azzero la shmStats... (va bene sia memset che il for)
+    //for(int i = 0; i < 26; i++)
+    //    shmStats[i] = 0;
 
     //creazione dei processi figli
     if(fork() == 0)
