@@ -41,7 +41,6 @@ void almz(char *shmC, long *shmS, int sem, unsigned SEM_N){
         if(shmC[0] == (char)-1) //se eof break...
             break;
 
-printf("___debug___[%u] carattere letto[%c]\n", SEM_N, shmC[0]);
         shmS[(int)shmC[0] - (int)'a'] += 1;
 
         SIGNAL(sem, S_PADRE);
@@ -50,7 +49,7 @@ printf("___debug___[%u] carattere letto[%c]\n", SEM_N, shmC[0]);
     //eof...
     shmdt(shmC);
     shmdt(shmS);
-    printf("\t\t[%u] terminazione...\n", SEM_N);
+    printf("\t\t[%s] terminazione...\n", SEM_N == 0 ? "AL" : "MZ");
     exit(0);
 }
 
