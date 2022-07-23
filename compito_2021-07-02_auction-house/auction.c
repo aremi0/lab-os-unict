@@ -134,10 +134,10 @@ int main(int argc, char *argv[]){
         }
 
         if(firstAequoOffer[1] == -1)
-            printf("[J] l'asta n.%d per %s si è conclusa senza alcuna offerta valida pertanto l'oggetto non risulta assegnato\n", counter, ptr->description);
+            printf("[J] l'asta n.%d per %s si è conclusa senza alcuna offerta valida pertanto l'oggetto non risulta assegnato\n\n", counter, ptr->description);
         else{
             printf("[J] l'asta n.%d per %s si è conclusa con %u valide su %d;", counter, ptr->description, ptr->validCounter, nBidders);
-            printf(" il vincitore è B%d che si aggiudica l'oggeto per %d EUR\n", firstAequoOffer[1], firstAequoOffer[0]);
+            printf(" il vincitore è B%d che si aggiudica l'oggeto per %d EUR\n\n", firstAequoOffer[1], firstAequoOffer[0]);
         }
 
         counter++;
