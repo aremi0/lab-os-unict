@@ -19,8 +19,8 @@
 #include <time.h>
 
 #define DIMBUF 2048
-#define S_JUDGE 0
-#define S_BIDDERS 1
+#define S_JUDGE 0 //sync
+#define S_BIDDERS 1 //sync
 
 typedef struct{
     unsigned eof;
