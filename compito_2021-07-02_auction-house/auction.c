@@ -51,11 +51,11 @@ void bidders(unsigned id, shmMsg *ptr, int sem){
         if(ptr->eof)
             break;
 
-        ptr->currentOffer = rand()%600;
+        ptr->currentOffer = rand() % (ptr->maxOffer - ptr->minOffer + 100) + ptr->minOffer-100; //può generare offerte negative! {rand() % (max-min+1) + min}
         if(ptr->currentOffer >= ptr->minOffer && ptr->currentOffer <= ptr->maxOffer)
             ptr->validCounter++;
         ptr->idCurrOffer = id;
-        printf("[B%u] invio offerta di %d per asta n.%d\n", id, ptr->currentOffer, counter);
+        printf("[B%u] invio offerta di %d per asta n.%d\n", id+1, ptr->currentOffer, counter);
         counter++;
         SIGNAL(sem, S_BIDDERS);
     }
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]){
         for(int i = 0; i < nBidders; i++){
             SIGNAL(sem_d, MUTEX); //rilascio shm dopo aver avviato l'asta...
             WAIT(sem_d, S_BIDDERS); //aspetto che un bidders lanci la sua offerta
-            printf("[J] ricevuta offerta da B%u\n", ptr->idCurrOffer);
+            printf("[J] ricevuta offerta da B%u\n", ptr->idCurrOffer+1);
             if((ptr->currentOffer > firstAequoOffer[0]) && (ptr->currentOffer <= ptr->maxOffer) && (ptr->currentOffer >= ptr->minOffer)){
                 firstAequoOffer[0] = ptr->currentOffer;
                 firstAequoOffer[1] = ptr->idCurrOffer;
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]){
             printf("[J] l'asta n.%d per %s si è conclusa senza alcuna offerta valida pertanto l'oggetto non risulta assegnato\n\n", counter, ptr->description);
         else{
             printf("[J] l'asta n.%d per %s si è conclusa con %u valide su %d;", counter, ptr->description, ptr->validCounter, nBidders);
-            printf(" il vincitore è B%d che si aggiudica l'oggeto per %d EUR\n\n", firstAequoOffer[1], firstAequoOffer[0]);
+            printf(" il vincitore è B%d che si aggiudica l'oggeto per %d EUR\n\n", firstAequoOffer[1]+1, firstAequoOffer[0]);
         }
 
         counter++;
