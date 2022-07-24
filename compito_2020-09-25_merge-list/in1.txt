@@ -1,6 +1,6 @@
-accotonatore
-intumescente
-velasco
+ accotonatore
+ intumescente
+    velasco   
 fiascaio
 autolesione
 fraseggiamento
