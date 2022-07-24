@@ -61,7 +61,7 @@ void tabellone(char *pathFifo, int sem){
     }
 
     while(1){
-        WAIT(sem, S_TABELLONE); //aspetto che il giudice scriva sulla mia fifo...
+        //WAIT(sem, S_TABELLONE); //aspetto che il giudice scriva sulla mia fifo...
         winner = (char)fgetc(fifo); //leggo 1byte dalla fifo...
 
         if(winner == '1'){
@@ -75,13 +75,13 @@ void tabellone(char *pathFifo, int sem){
         else
             break;
 
-        SIGNAL(sem, S_GIUDICE);
+        //SIGNAL(sem, S_GIUDICE);
     }
 
     printf("[T] classifica finale: P1=%d P2=%d\n", p1Tmp, p2Tmp);
     winner = p1Tmp > p2Tmp ? '1' : '2';
     printf("[T] vincitore del torneo: P%c\n", winner);
-    SIGNAL(sem, S_GIUDICE);
+    //SIGNAL(sem, S_GIUDICE);
 
     //in chiusura...
     fclose(fifo);
@@ -149,8 +149,8 @@ void giudice(int coda, char *pathFifo, int sem, int totPartite){
         else{
             printf("[G] partita n.%d vinta da P%c\n", currentPartita, winner[0]);
             write(fifo, winner, 1);
-            SIGNAL(sem, S_TABELLONE); //sveglio tabellone...
-            WAIT(sem, S_GIUDICE); //...e aspetto che finisca...
+            //SIGNAL(sem, S_TABELLONE); //sveglio tabellone...
+            //WAIT(sem, S_GIUDICE); //...e aspetto che finisca...
             currentPartita++;
         }
     }
@@ -158,7 +158,7 @@ void giudice(int coda, char *pathFifo, int sem, int totPartite){
     //le partite sono state giocate, in chiusura...
     winner[0] = 'e';
     write(fifo, winner, 1);
-    SIGNAL(sem, S_TABELLONE);
+    //SIGNAL(sem, S_TABELLONE);
 
     memset(&messaggio1, 0, sizeof(msg)); //eof p1...
     messaggio1.eof = 1;
