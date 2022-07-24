@@ -150,7 +150,7 @@ int main(int argc, char *argv[]){
     }
 
     //ricevute eof da entrambi i reader
-    //devo mandare eof a writer sulla pipe
+    //la eof viene mandata in automatico quando tutti chiudono ambo i canali della pipe
     close(pipe_d[1]);
     msgctl(coda_d, IPC_RMID, NULL);
     printf("\t[PADRE] terminazione...\n");
