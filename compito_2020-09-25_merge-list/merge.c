@@ -79,7 +79,7 @@ void reader(unsigned id, char *path, int coda_d){ //id, argv[], coda_d
 void writer(int *pipe_d){
     char buffer[DIMBUF];
     int r = 0;
-    close(pipe_d[1]);
+    close(pipe_d[1]); //chiudo canale scrittura
 
     while((r = read(pipe_d[0], buffer, DIMBUF)) > 0){
         printf("[W] ricevuto: '%s'\n", buffer);
@@ -116,6 +116,8 @@ int main(int argc, char *argv[]){
     if(fork() == 0)
         writer(pipe_d); //pipe_d in lettura
 
+    close(pipe_d[0]); //chiudo canale in lettura
+
     while(1){
         if((msgrcv(coda_d, &msg, sizeof(codaMsg)-sizeof(long), 0, 0)) == -1){
             perror("msgrcv padre");
@@ -149,8 +151,6 @@ int main(int argc, char *argv[]){
 
     //ricevute eof da entrambi i reader
     //devo mandare eof a writer sulla pipe
-    //write(pipe_d[1], (void*)-1, DIMBUF); //eof a writer
-    close(pipe_d[0]);
     close(pipe_d[1]);
     msgctl(coda_d, IPC_RMID, NULL);
     printf("\t[PADRE] terminazione...\n");
