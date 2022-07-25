@@ -8,12 +8,8 @@
  *  ||  versione con coda e fifo.
  *  ||  in questa versione le partite patte vengono reiterate.
  * 
- *  ||  FIFO;
- *  |----scrittura: con write() aperta in un 'int fifo_d'.
- *  |----lettura:   con fgetc() aperta in uno stream 'FILE* fifo'
- * 
- *  P.s. senza l'utilizzo di un semaforo per sincronizzare bene tabellone e giudice succede a volte
-*   che il tabellone si desincronizza con il giudice
+ *  P.s. quando il giudice scrive sulla fifo è necessario un 'usleep(100) per dare al tabellone
+*   un minimo di tempo per leggere dalla fifo e restare in sync con il giudice
  */
 
 #include <stdlib.h>
@@ -31,7 +27,7 @@
 #define FIFOPATH "/home/aremi/git/lab-os-unict/compito_2020-02-21_morra-cinese(coda&fifo)/myfifo"
 
 typedef struct{
-    long type;
+    long type;      //type=2  ==> player     ||      type=1  ==> giudice
     unsigned eof;
     char player;
     char mossa;
@@ -101,12 +97,13 @@ void giudice(int coda_d, int nPartite){ //coda_d, fifo_d, numero-partite
         exit(1);
     }
 
+    msg1.eof = 0;
+
     while(pCounter <= nPartite){
         printf("[G]\t inizio partita n.%d\n", pCounter);
 
-        memset(&msg1, 0, sizeof(codaMsg));
+        //memset(&msg1, 0, sizeof(codaMsg));
         msg1.type = 2;
-        msg1.eof = 0;
 
         if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //attivo player.1
             perror("msgsnd 1 giudice");
@@ -139,12 +136,12 @@ void giudice(int coda_d, int nPartite){ //coda_d, fifo_d, numero-partite
             perror("write fifo_d");
             exit(1);
         }
-
         pCounter++;
+        usleep(100); //do il tempo al tabellone di leggere dalla pipe... (sincronizzazione)
     }
 
     //in chiusura...
-    memset(&msg1, 0, sizeof(codaMsg));
+    //memset(&msg1, 0, sizeof(codaMsg));
     msg1.eof = 1;
     msg1.type = 2;
     if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //eof primo player...
@@ -166,18 +163,13 @@ void tabellone(){
     int fifo_d;
     int p1Win = 0, p2Win = 0;
     char winner;
-    FILE *f;
 
     if((fifo_d = open(FIFOPATH, O_RDONLY)) == -1){ //apro la fifo in sola lettura
         perror("open tabellone fifo rOnly");
         exit(1);
     }
-    if((f = fdopen(fifo_d, "r")) == NULL){ //se utilizzo la read classica si desincronizza sempre, con lo stream di meno
-        perror("fdopen tabellone");
-        exit(1);
-    }
 
-    while((winner = fgetc(f)) > 0){
+    while(read(fifo_d, &winner, 1) > 0){
         if(winner == '1')
             p1Win++;
         else
@@ -191,7 +183,6 @@ void tabellone(){
 
     //in chiusura...
     close(fifo_d);
-    fclose(f);
     printf("\t\t[T] terminazione...\n");
     exit(0);
 }
