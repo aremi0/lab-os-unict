@@ -65,10 +65,21 @@ void lower(char *cmd, shmMsg *ptr){
 }
 
 void replace(char *cmd, shmMsg *ptr){
+    char *parola1, parola2[128], *cursor, nextCursor[1024];
 
+    parola1 = strtok(cmd+1, ",");
+    strcpy(parola2, "YYYYYYYYY");
+
+    while((cursor = strstr(ptr->riga, parola1)) != NULL){ //se trova la sottostringa, cursor vi punterà
+        strcpy(nextCursor, cursor+strlen(parola1));
+        strcpy(cursor, "");
+        strcat(cursor, parola2);
+        strcat(cursor, nextCursor);
+    }
 }
 
 void filter(int currFilter, int totFilter, char *cmd, shmMsg *ptr, int sem){ //currFilter, numFilter, argv[i+2], msg, sem_d
+
     while(1){
         WAIT(sem, S_FILTER);
 
