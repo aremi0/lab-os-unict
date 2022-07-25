@@ -6,7 +6,9 @@
  * 
  * Prova di laboratorio di SO del 2021-01-22
  * 
- * 3h3m - 5h14 ==> 2h11m
+ * N.b. per quanto riguarda 'replace':
+ *      strtok somma offset a 'cmd'... per cui meglio che la stringa da
+ *      spezzettare sia a dim fissa _cmd[MAX] anzichè a dim variabile char*;
  */
 
 #include <stdlib.h>
@@ -65,10 +67,11 @@ void lower(char *cmd, shmMsg *ptr){
 }
 
 void replace(char *cmd, shmMsg *ptr){
-    char *parola1, parola2[128], *cursor, nextCursor[1024];
+    char *parola1, *cursor, nextCursor[MAX_LEN];
+    char *parola2;
 
     parola1 = strtok(cmd, ",");
-    strcpy(parola2, "YYYYYYYYY"); //da correggere, strtok al secondo ciclo ci ritorna <(null)>
+    parola2 = strtok(NULL, ",");
 
     while((cursor = strstr(ptr->riga, parola1)) != NULL){ //se trova la sottostringa, cursor vi punterà
         strcpy(nextCursor, cursor+strlen(parola1)); //salvo la sottostringa successiva a 'parola1'
@@ -91,8 +94,11 @@ void filter(int currFilter, int totFilter, char *cmd, shmMsg *ptr, int sem){ //c
             upper(cmd+1, ptr);
         else if(cmd[0] == '_')
             lower(cmd+1, ptr);
-        else
-            replace(cmd+1, ptr);
+        else{
+            char _cmd[MAX_LEN];
+            strcpy(_cmd, cmd); //strtok somma offset a *cmd... per cui meglio che la stringa da spezzettare sia a dim fissa _cmd[MAX] anzichè a dim variabile char*
+            replace(_cmd+1, ptr);
+        }
         
 
         if(currFilter == totFilter) //sono l'ultimo filtro; sveglio il padre...
@@ -154,7 +160,7 @@ int main(int argc, char *argv[]){
         SIGNAL(sem_d, S_FILTER);
         WAIT(sem_d, S_PADRE); //...deposito riga in shm, sveglio filter e aspetto che elabori...
 
-        printf("[PADRE]: %s", ptr->riga);
+        printf("%s", ptr->riga);
     }
 
     ptr->eof = 1;
