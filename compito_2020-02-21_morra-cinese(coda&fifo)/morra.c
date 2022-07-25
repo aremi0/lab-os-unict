@@ -11,262 +11,225 @@
  *  ||  FIFO;
  *  |----scrittura: con write() aperta in un 'int fifo_d'.
  *  |----lettura:   con fgetc() aperta in uno stream 'FILE* fifo'
+ * 
+ *  P.s. senza l'utilizzo di un semaforo per sincronizzare bene tabellone e giudice succede a volte
+*   che il tabellone si desincronizza con il giudice
  */
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
+#include <stdio.h>
+#include <wait.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <sys/ipc.h>
-#include <sys/types.h>
 #include <sys/msg.h>
-#include <sys/stat.h>
-#include <sys/sem.h>
-#include <wait.h>
 #include <time.h>
+#include <sys/stat.h>
 
-#define S_GIUDICE 0
-#define S_TABELLONE 1
+#define FIFOPATH "/home/aremi/git/lab-os-unict/compito_2020-02-21_morra-cinese(coda&fifo)/myfifo"
 
-int WAIT(int semDes, int nSem){
-    struct sembuf op[1] = {{nSem, -1, 0}};
-    return semop(semDes, op, 1);
-}
-int SIGNAL(int semDes, int nSem){
-    struct sembuf op[1] = {{nSem, +1, 0}};
-    return semop(semDes, op, 1);
-}
-/***
- *  semafori per sincronizzare Giudice e Tabellone;
- * 
- *  type 1 ==> Giudice;
- *  type 2 ==> p1 e p2 (sfruttato per mandare l'eof);
-*/ 
 typedef struct{
     long type;
-    int eof;
-    char mossa;
+    unsigned eof;
     char player;
-} msg;
-
-void tabellone(char *pathFifo, int sem){
-    FILE *fifo;
-    char winner;
-    int p1Tmp = 0, p2Tmp = 0;
-
-    if((fifo = fopen(pathFifo, "r")) == NULL){ //apertura della fifo
-        perror("open giudice");
-        exit(1);
-    }
-
-    while(1){
-        //WAIT(sem, S_TABELLONE); //aspetto che il giudice scriva sulla mia fifo...
-        winner = (char)fgetc(fifo); //leggo 1byte dalla fifo...
-
-        if(winner == '1'){
-            p1Tmp++;
-            printf("[T] classifica temporanea: P1=%d P2=%d\n\n", p1Tmp, p2Tmp);
-        }
-        else if(winner == '2'){
-            p2Tmp++;
-            printf("[T] classifica temporanea: P1=%d P2=%d\n\n", p1Tmp, p2Tmp);
-        }
-        else
-            break;
-
-        //SIGNAL(sem, S_GIUDICE);
-    }
-
-    printf("[T] classifica finale: P1=%d P2=%d\n", p1Tmp, p2Tmp);
-    winner = p1Tmp > p2Tmp ? '1' : '2';
-    printf("[T] vincitore del torneo: P%c\n", winner);
-    //SIGNAL(sem, S_GIUDICE);
-
-    //in chiusura...
-    fclose(fifo);
-    printf("\t\t[T] terminazione...\n");
-    exit(0);
-}
-
-char calcolaVincitore(msg m1, msg m2){
-    switch(m1.mossa){
-        case 's':
-            if(m2.mossa == 's') return 'e';
-            else if(m2.mossa == 'c') return m2.player;
-            else return m1.player;
-        case 'c':
-            if(m2.mossa == 's') return m1.player;
-            else if(m2.mossa == 'c') return 'e';
-            else return m2.player;
-        case 'f':
-            if(m2.mossa == 's') return m2.player;
-            else if(m2.mossa == 'c') return m1.player;
-            else return 'e';
-    }
-}
-
-void giudice(int coda, char *pathFifo, int sem, int totPartite){
-    int currentPartita = 1;
-    char winner[1];
-    msg messaggio1, messaggio2;
-    int fifo;
-
-    if((fifo = open(pathFifo, O_WRONLY)) == -1){ //apertura fifo in un FILE* stream
-        perror("open giudice");
-        exit(1);
-    }
-    
-    while(currentPartita <= totPartite){
-        printf("[G] inizio partita n.%d\n", currentPartita);
-
-        //chiedo ai player di giocare la loro mossa...
-        memset(&messaggio1, 0, sizeof(msg)); //eof p1...
-        messaggio1.eof = 0;
-        messaggio1.type = 2;
-        if((msgsnd(coda, &messaggio1, sizeof(msg)-sizeof(long), 0)) == -1){
-            perror("msgsnd giudice eof m1");
-            exit(1);
-        }
-        if((msgsnd(coda, &messaggio1, sizeof(msg)-sizeof(long), 0)) == -1){
-            perror("msgsnd giudice eof m2");
-            exit(1);
-        }
-
-        if((msgrcv(coda, &messaggio1, sizeof(msg)-sizeof(long), 1, 0)) == -1){
-            perror("msgrcv giudice");
-            exit(1);
-        }
-        if((msgrcv(coda, &messaggio2, sizeof(msg)-sizeof(long), 1, 0)) == -1){ //...prelevo i due messaggi dei player
-            perror("msgrcv giudice");
-            exit(1);
-        }
-
-        if((winner[0] = calcolaVincitore(messaggio1, messaggio2)) == 'e'){ //patta... verrà reiterata...
-            printf("[G] partita n.%d patta e quindi da ripetere\n", currentPartita);
-            continue;
-        }
-        else{
-            printf("[G] partita n.%d vinta da P%c\n", currentPartita, winner[0]);
-            write(fifo, winner, 1);
-            //SIGNAL(sem, S_TABELLONE); //sveglio tabellone...
-            //WAIT(sem, S_GIUDICE); //...e aspetto che finisca...
-            currentPartita++;
-        }
-    }
-
-    //le partite sono state giocate, in chiusura...
-    winner[0] = 'e';
-    write(fifo, winner, 1);
-    //SIGNAL(sem, S_TABELLONE);
-
-    memset(&messaggio1, 0, sizeof(msg)); //eof p1...
-    messaggio1.eof = 1;
-    messaggio1.type = 2;
-    if((msgsnd(coda, &messaggio1, sizeof(msg)-sizeof(long), 0)) == -1){
-        perror("msgsnd giudice eof p1");
-        exit(1);
-    }
-    if((msgsnd(coda, &messaggio1, sizeof(msg)-sizeof(long), 0)) == -1){
-        perror("msgsnd giudice eof p2");
-        exit(1);
-    }
-
-    printf("\t\t[G] terminazione...\n");
-    close(fifo);
-    exit(0);
-}
+    char mossa;
+} codaMsg;
 
 char generaMossa(){
-    int r = rand() % 3; //produce 1-2-3
-
-    switch(r){
-        case 0: return 's';
-        case 1: return 'c';
-        case 2: return 'f';
-    }
+    char pool[3] = {'C', 'F', 'S'};
+    return pool[rand() % 3];
 }
 
-void player(int coda, int sem, char id){
-    srand(time(NULL) % getpid()); //generazione seme rand()
-    msg messaggio;
+void player(char id, int coda_d){ //id, coda_d
+    srand(time(NULL) % getpid());
+    codaMsg msg;
 
     while(1){
-        if((msgrcv(coda, &messaggio, sizeof(msg)-sizeof(long), 2, 0)) == -1){ //aspetto che il giudice mia dia il permesso di giocare la mia mossa...
+        if((msgrcv(coda_d, &msg, sizeof(codaMsg)-sizeof(long), 2, 0)) == -1){ //aspetto che il giudice mi dia il permesso di giocare la mia mossa...
             perror("msgrcv player");
             exit(1);
         }
-        if(messaggio.eof)
+
+        if(msg.eof)
             break;
 
-        memset(&messaggio, 0, sizeof(msg));
-        messaggio.mossa = generaMossa();
-        messaggio.type = 1;
-        messaggio.player = id;
-        printf("[P%c] mossa '%c'\n", id, messaggio.mossa);
+        memset(&msg, 0, sizeof(codaMsg));
+        msg.type = 1;
+        msg.player = id;
+        msg.mossa = generaMossa();
+        printf("[P%c]\t mossa '%c'\n", id, msg.mossa);
 
-        if((msgsnd(coda, &messaggio, sizeof(msg)-sizeof(long), 0)) == -1){
+        if((msgsnd(coda_d, &msg, sizeof(codaMsg)-sizeof(long), 0)) == -1){
             perror("msgsnd player");
             exit(1);
         }
     }
 
+    //in chiusura...
     printf("\t\t[P%c] terminazione...\n", id);
     exit(0);
 }
 
-int main(int argc, char *argv[]){
-    int coda_d, fifo_d, sem_d;
-    char *path = "/tmp/myfifo";
+char calcolaVincitore(codaMsg m1, codaMsg m2){
+    switch(m1.mossa){
+        case 'C':
+            if(m2.mossa == 'C') return 'e';
+            else if(m2.mossa == 'F') return '2';
+            else return '1';
+        case 'F':
+            if(m2.mossa == 'C') return '1';
+            else if(m2.mossa == 'F') return 'e';
+            else return '2';
+        case 'S':
+            if(m2.mossa == 'C') return '2';
+            else if(m2.mossa == 'F') return '1';
+            else return 'e';
+    }
+}
 
-    if(argc != 2){
-        printf("Uso: %s\n", argv[0]);
+void giudice(int coda_d, int nPartite){ //coda_d, fifo_d, numero-partite
+    codaMsg msg1, msg2;
+    int pCounter = 1;
+    char winner;
+    int fifo_d;
+    FILE *f;
+
+    if((fifo_d = open(FIFOPATH, O_WRONLY)) == -1){
+        perror("open giudice fifo wOnly");
         exit(1);
     }
 
+    while(pCounter <= nPartite){
+        printf("[G]\t inizio partita n.%d\n", pCounter);
+
+        memset(&msg1, 0, sizeof(codaMsg));
+        msg1.type = 2;
+        msg1.eof = 0;
+
+        if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //attivo player.1
+            perror("msgsnd 1 giudice");
+            exit(1);
+        }
+        if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //attivo player.2
+            perror("msgsnd 2 giudice");
+            exit(1);
+        }
+
+        if((msgrcv(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 1, 0)) == -1){ //aspetto mossaP1
+            perror("msgrcv 1 giudice");
+            exit(1);
+        }
+        if((msgrcv(coda_d, &msg2, sizeof(codaMsg)-sizeof(long), 1, 0)) == -1){ //aspetto mossaP2
+            perror("msgrcv 2 giudice");
+            exit(1);
+        }
+
+        winner = calcolaVincitore(msg1, msg2);
+
+        if(winner == 'e'){ //se è patta reitero...
+            printf("[G]\t partita n.%d patta e quindi da ripetere\n", pCounter);
+            continue;
+        }
+
+        printf("[G]\t partita n.%d vinta da P%c\n", pCounter, winner);
+
+        if(write(fifo_d, &winner, 1) == -1){ //...altrimenti scrivo sulla fifo il vincitore
+            perror("write fifo_d");
+            exit(1);
+        }
+
+        pCounter++;
+    }
+
+    //in chiusura...
+    memset(&msg1, 0, sizeof(codaMsg));
+    msg1.eof = 1;
+    msg1.type = 2;
+    if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //eof primo player...
+        perror("msgsnd 1 giudice");
+        exit(1);
+    }
+    msg1.type = 2;
+    if((msgsnd(coda_d, &msg1, sizeof(codaMsg)-sizeof(long), 0)) == -1){ //eof secondo player...
+        perror("msgsnd 1 giudice");
+        exit(1);
+    }
+
+    close(fifo_d); //dovrebbe manda eof a tabellone...
+    printf("\t\t[G] terminazione...\n");
+    exit(0);
+}
+
+void tabellone(){
+    int fifo_d;
+    int p1Win = 0, p2Win = 0;
+    char winner;
+    FILE *f;
+
+    if((fifo_d = open(FIFOPATH, O_RDONLY)) == -1){ //apro la fifo in sola lettura
+        perror("open tabellone fifo rOnly");
+        exit(1);
+    }
+    if((f = fdopen(fifo_d, "r")) == NULL){ //se utilizzo la read classica si desincronizza sempre, con lo stream di meno
+        perror("fdopen tabellone");
+        exit(1);
+    }
+
+    while((winner = fgetc(f)) > 0){
+        if(winner == '1')
+            p1Win++;
+        else
+            p2Win++;
+
+        printf("[T]\t classifca temporanea: P1=%d  P2=%d\n\n", p1Win, p2Win);
+    }
+
+    printf("[T]\t classifca finale: P1=%d  P2=%d\n", p1Win, p2Win);
+    printf("[T]\t il vincitore del torneo è: P%c\n", p1Win > p2Win ? '1' : '2');
+
+    //in chiusura...
+    close(fifo_d);
+    fclose(f);
+    printf("\t\t[T] terminazione...\n");
+    exit(0);
+}
+
+int main(int argc, char *argv[]){
+    int coda_d;
+
+    if(argc != 2){
+        fprintf(stderr, "Uso: %s <numero-partite>\n", argv[0]);
+        exit(1);
+    }
     if((coda_d = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione coda
         perror("msgget");
         exit(1);
     }
-    if((fifo_d = mkfifo(path, 0600)) == -1){ //creazione fifo
+    if(mkfifo(FIFOPATH, 0600) == -1){ //creazione fifo
         perror("mkfifo");
         exit(1);
     }
-    if((sem_d = semget(IPC_PRIVATE, 2, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione vettore semafori
-        perror("semget");
-        exit(1);
-    }
 
-    //inizializzazione default semafori...
-    if(semctl(sem_d, S_GIUDICE, SETVAL, 0) == -1){
-        perror("semctl giudice");
-        exit(1);
-    }
-    if(semctl(sem_d, S_TABELLONE, SETVAL, 0) == -1){
-        perror("semctl tabellone");
-        exit(1);
-    }
+    //creazione figli
+    if(fork() == 0)
+        player('1', coda_d); //id, coda_d ==> player.1
+    if(fork() == 0)
+        player('2', coda_d); //id, coda_d ==> player.2
+    if(fork() == 0)
+        giudice(coda_d, atoi(argv[1])); //coda_d, numero-partite || FIFOPATH
+    if(fork() == 0)
+        tabellone(); //|| FIFOPATH
 
-    //creazione figli...
-    if(fork() == 0)
-        player(coda_d, sem_d, '1');
-    if(fork() == 0)
-        player(coda_d, sem_d, '2');
-    if(fork() == 0)
-        giudice(coda_d, path, sem_d, atoi(argv[1]));
-    if(fork() == 0)
-        tabellone(path, sem_d);
-        
     wait(NULL);
     wait(NULL);
     wait(NULL);
     wait(NULL);
 
     //in chiusura...
-    unlink(path); //cancellazione della fifo
     msgctl(coda_d, IPC_RMID, NULL);
-    semctl(sem_d, 0, IPC_RMID, 0);
-
+    unlink(FIFOPATH);
     printf("\t\t[PADRE] terminazione...\n");
     exit(0);
 }
