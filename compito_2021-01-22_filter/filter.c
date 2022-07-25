@@ -6,7 +6,7 @@
  * 
  * Prova di laboratorio di SO del 2021-01-22
  * 
- * 3h3m
+ * 3h3m - 5h14 ==> 2h11m
  */
 
 #include <stdlib.h>
@@ -42,9 +42,9 @@ void upper(char *cmd, shmMsg *ptr){
     char *cursor;
     int i = 0;
 
-    while((cursor = strstr(ptr->riga, cmd+1)) != NULL){ //se trova la sottostringa, cursor vi punterà
+    while((cursor = strstr(ptr->riga, cmd)) != NULL){ //se trova la sottostringa, cursor vi punterà
         i = 0;
-        while(i < strlen(cmd+1)){ //applico il filtro upper per la lunghezza di 'parola'
+        while(i < strlen(cmd)){ //applico il filtro upper per la lunghezza di 'parola'
             cursor[i] = toupper(cursor[i]);
             i++;
         }
@@ -55,9 +55,9 @@ void lower(char *cmd, shmMsg *ptr){
     char *cursor;
     int i = 0;
 
-    while((cursor = strstr(ptr->riga, cmd+1)) != NULL){ //se trova la sottostringa, cursor vi punterà
+    while((cursor = strstr(ptr->riga, cmd)) != NULL){ //se trova la sottostringa, cursor vi punterà
         i = 0;
-        while(i < strlen(cmd+1)){ //applico il filtro lower per la lunghezza di 'parola'
+        while(i < strlen(cmd)){ //applico il filtro lower per la lunghezza di 'parola'
             cursor[i] = tolower(cursor[i]);
             i++;
         }
@@ -67,18 +67,18 @@ void lower(char *cmd, shmMsg *ptr){
 void replace(char *cmd, shmMsg *ptr){
     char *parola1, parola2[128], *cursor, nextCursor[1024];
 
-    parola1 = strtok(cmd+1, ",");
-    strcpy(parola2, "YYYYYYYYY");
+    parola1 = strtok(cmd, ",");
+    strcpy(parola2, "YYYYYYYYY"); //da correggere, strtok al secondo ciclo ci ritorna <(null)>
 
     while((cursor = strstr(ptr->riga, parola1)) != NULL){ //se trova la sottostringa, cursor vi punterà
-        strcpy(nextCursor, cursor+strlen(parola1));
+        strcpy(nextCursor, cursor+strlen(parola1)); //salvo la sottostringa successiva a 'parola1'
         strcpy(cursor, "");
         strcat(cursor, parola2);
-        strcat(cursor, nextCursor);
+        strcat(cursor, nextCursor); //...azzero da cursor in poi => concateno 'parola2' => concateno ciò che vi era dopo 'parola1'
     }
 }
 
-void filter(int currFilter, int totFilter, char *cmd, shmMsg *ptr, int sem){ //currFilter, numFilter, argv[i+2], msg, sem_d
+void filter(int currFilter, int totFilter, char *cmd, shmMsg *ptr, int sem){ //currFilter, numFilter, argv[i+2], shm_ptr, sem_d
 
     while(1){
         WAIT(sem, S_FILTER);
@@ -88,11 +88,11 @@ void filter(int currFilter, int totFilter, char *cmd, shmMsg *ptr, int sem){ //c
         
         //handling comando...
         if(cmd[0] == '^')
-            upper(cmd, ptr);
+            upper(cmd+1, ptr);
         else if(cmd[0] == '_')
-            lower(cmd, ptr);
+            lower(cmd+1, ptr);
         else
-            replace(cmd, ptr);
+            replace(cmd+1, ptr);
         
 
         if(currFilter == totFilter) //sono l'ultimo filtro; sveglio il padre...
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]){
     //creazione figli...
     for(int i = 0; i < totFilter; i++) //grazie al 'for' creo i figli proceduralmente, chiameranno quindi la 'WAIT' in ordine di coda...
         if(fork() == 0)
-            filter(i+1, totFilter, argv[i+2], ptr, sem_d); //currFilter, numFilter, argv[i+2], msg, sem_d
+            filter(i+1, totFilter, argv[i+2], ptr, sem_d); //currFilter, numFilter, argv[i+2], shm_ptr, sem_d
 
     while(fgets(ptr->riga, MAX_LEN, input)){ //mentre leggo righe dal file...
 
