@@ -5,10 +5,13 @@
  * @date 2022-07-25
  * 
  * Prova di laboratorio di SO del 2021-01-22
- * 
- * N.b. per quanto riguarda 'replace':
- *      strtok somma offset a 'cmd'... per cui meglio che la stringa da
- *      spezzettare sia a dim fissa _cmd[MAX] anzichè a dim variabile char*;
+ * ________________________________________________________________________________
+ * N.b       grazie al 'for'+usleep(100) creo i figli proceduralmente,
+ *           chiameranno quindi la 'WAIT' in ordine di coda...
+ * ________________________________________________________________________________
+ * N.b.2     per quanto riguarda 'replace':
+ *           strtok somma offset a 'cmd'... per cui meglio che la stringa da
+ *           spezzettare sia a dim fissa _cmd[MAX] anzichè a dim variabile char*;
  */
 
 #include <stdlib.h>
@@ -151,9 +154,11 @@ int main(int argc, char *argv[]){
     ptr->eof = 0;
 
     //creazione figli...
-    for(int i = 0; i < totFilter; i++) //grazie al 'for' creo i figli proceduralmente, chiameranno quindi la 'WAIT' in ordine di coda...
+    for(int i = 0; i < totFilter; i++){ //grazie al 'for'+usleep(100) creo i figli proceduralmente, chiameranno quindi la 'WAIT' in ordine di coda...
         if(fork() == 0)
             filter(i+1, totFilter, argv[i+2], ptr, sem_d); //currFilter, numFilter, argv[i+2], shm_ptr, sem_d
+        usleep(100);
+    }
 
     while(fgets(ptr->riga, MAX_LEN, input)){ //mentre leggo righe dal file...
 
