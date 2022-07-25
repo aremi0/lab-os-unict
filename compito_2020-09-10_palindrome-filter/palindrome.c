@@ -5,6 +5,10 @@
  * @date 2022-07-25
  * 
  * Prova di laboratorio di SO del 2020-09-10
+ *      [N.b.] negli esercizi con le pipe, specie se bisogna creare più di una pipe, E' ASSOLUTAMENTE
+ *      OBBLIGATORIO chiudere nei processi nel main dei processi figli tutti i canali
+ *      di tutte le pipe non utilizzati, passargli solamente il canale che gli serve e poi,
+ *      prima di exit(), chiudere anche quello.
  */
 
 #include <stdlib.h>
@@ -16,11 +20,10 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <ctype.h>
 
 #define DIMBUF 512
 
-void reader(int pipe, char *ptr, long size){ //pipeRP_d, mmap ptr
+void reader(int pipe, char *ptr, long size){ //pipeRP_d[1], mmap ptr, size
 
     for(int i = 0; i < size; i++) //scansiono e mando tutto il file mappato char-per-char
         write(pipe, &ptr[i], 1);
@@ -31,7 +34,7 @@ void reader(int pipe, char *ptr, long size){ //pipeRP_d, mmap ptr
     exit(0);
 }
 
-void writer(int pipe){ //pipePW_d
+void writer(int pipe){ //pipePW_d[0]
     FILE *f;
     char buffer[DIMBUF];
 
@@ -51,7 +54,7 @@ void writer(int pipe){ //pipePW_d
 }
 
 int isPalindrome(char *string){
-    for(int i = 0, j = strlen(string) - 2; i < j; i++, j--){
+    for(int i = 0, j = strlen(string) - 2; i < j; i++, j--){ // -2 per non considerare "\n\0"
         if(string[i] != string[j])
             return 0;
     }
@@ -99,13 +102,13 @@ int main(int argc, char *argv[]){
         close(pipePW_d[0]); //writer...
         close(pipePW_d[1]); //writer...
         close(pipeRP_d[0]); //non serve
-        reader(pipeRP_d[1], ptr, statbuf.st_size); //pipeRP_d, mmap ptr, size
+        reader(pipeRP_d[1], ptr, statbuf.st_size); //pipeRP_d[1], mmap ptr, size
     }
     if(fork() == 0){
-        close(pipeRP_d[0]);
-        close(pipeRP_d[1]);
-        close(pipePW_d[1]);
-        writer(pipePW_d[0]); //pipePW_d
+        close(pipeRP_d[0]); //reader...
+        close(pipeRP_d[1]); //reader...
+        close(pipePW_d[1]); //non serve
+        writer(pipePW_d[0]); //pipePW_d[0]
     }
 
     //chiusura canali pipe non usati dal padre...
