@@ -20,14 +20,11 @@
 
 #define DIMBUF 512
 
-void reader(int *pipe, char *ptr){ //pipeRP_d, mmap ptr
-    char buffer;
-    close(pipe[0]); //chiudo canale lettura
-    int i = 0;
+void reader(int *pipe, char *ptr, long size){ //pipeRP_d, mmap ptr
+    close(pipe[0]);
 
-    while((write(pipe[1], ptr, 1)) > 0) //scansiono e mando tutto il file mappato char-per-char
-        ptr++;
-
+    for(int i = 0; i < size; i++) //scansiono e mando tutto il file mappato char-per-char
+        write(pipe[1], &ptr[i], 1);
 
     //in chiusura...
     close(pipe[1]);
@@ -35,23 +32,20 @@ void reader(int *pipe, char *ptr){ //pipeRP_d, mmap ptr
     exit(0);
 }
 
-void writer(int *pipe){ //pipePW_d
+void writer(int pipe){ //pipePW_d
     FILE *f;
     char buffer[DIMBUF];
-    close(pipe[1]); //chiudo canale scrittura
 
-    if((f = fdopen(pipe[0], "r")) == NULL){
+    if((f = fdopen(pipe, "r")) == NULL){
         perror("fopen writer");
         exit(1);
     }
 
-    while(fgets(buffer, DIMBUF, f)){
+    while(fgets(buffer, DIMBUF, f))
         printf("[W] palindroma ricevuta: %s", buffer);
-//printf("__debug_writer_attesa_\n");
-    }
 
     //in chiusura...
-    close(pipe[0]); //chiudo canale scrittura
+    close(pipe); //chiudo canale scrittura
     fclose(f);
     printf("\t\t[W] terminazione...\n");
     exit(0);
@@ -70,7 +64,7 @@ int main(int argc, char *argv[]){
     int pipeRP_d[2], pipePW_d[2], input_fd;
     struct stat statbuf;
     char *ptr, buffer[DIMBUF];
-    FILE *f;
+    FILE *_pipeRP;
 
     if(argc != 2){
         fprintf(stderr, "Uso: %s <input-file>\n", argv[0]);
@@ -92,26 +86,26 @@ int main(int argc, char *argv[]){
         perror("pipe Reader-Padre");
         exit(1);
     }
-    if((pipe(pipePW_d)) == -1){
-        perror("pipe Padre-Writer"); //creo pipe Padre-Writer
+    if((pipe(pipePW_d)) == -1){ //creo pipe Padre-Writer
+        perror("pipe Padre-Writer");
         exit(1);
     }
-    if((f = fdopen(pipeRP_d[0], "r")) == NULL){
+    if((_pipeRP = fdopen(pipeRP_d[0], "r")) == NULL){ //apro la pipe del reader in uno stream
         perror("fopen padre");
         exit(1);
     }
 
     //creazione figli...
     if(fork() == 0)
-        reader(pipeRP_d, ptr); //pipeRP_d, mmap ptr, size
+        reader(pipeRP_d, ptr, statbuf.st_size); //pipeRP_d, mmap ptr, size
     if(fork() == 0)
-        writer(pipePW_d); //pipePW_d
+        writer(pipePW_d[0]); //pipePW_d
 
-    close(pipeRP_d[1]); //chiudo canale scrittura reader
-    close(pipePW_d[0]); //chiudo canale lettura writer
+    //chiusura canali pipe non usati dal padre...
+    close(pipeRP_d[1]);
+    close(pipePW_d[0]);
 
-    while((fgets(buffer, DIMBUF, f))){ //leggo parola-per-parola
-printf("__debug_padre__%s", buffer);
+    while((fgets(buffer, DIMBUF, _pipeRP))){ //leggo parola-per-parola
         if(isPalindrome(buffer))
             write(pipePW_d[1], &buffer, strlen(buffer)); //scrivo parola-per-parola
     }
@@ -121,7 +115,7 @@ printf("asdasdasd__debug_writer_attesa_\n");
     close(pipeRP_d[0]);
     close(pipePW_d[1]);
     close(input_fd);
-    fclose(f);
+    fclose(_pipeRP);
     munmap(ptr, statbuf.st_size);
     printf("\t\t[PADRE] terminazione...\n");
     exit(0);
