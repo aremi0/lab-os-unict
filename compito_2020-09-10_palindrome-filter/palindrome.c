@@ -20,14 +20,13 @@
 
 #define DIMBUF 512
 
-void reader(int *pipe, char *ptr, long size){ //pipeRP_d, mmap ptr
-    close(pipe[0]);
+void reader(int pipe, char *ptr, long size){ //pipeRP_d, mmap ptr
 
     for(int i = 0; i < size; i++) //scansiono e mando tutto il file mappato char-per-char
-        write(pipe[1], &ptr[i], 1);
+        write(pipe, &ptr[i], 1);
 
     //in chiusura...
-    close(pipe[1]);
+    close(pipe);
     printf("\t\t[R] terminazione...\n");
     exit(0);
 }
@@ -96,10 +95,18 @@ int main(int argc, char *argv[]){
     }
 
     //creazione figli...
-    if(fork() == 0)
-        reader(pipeRP_d, ptr, statbuf.st_size); //pipeRP_d, mmap ptr, size
-    if(fork() == 0)
+    if(fork() == 0){
+        close(pipePW_d[0]); //writer...
+        close(pipePW_d[1]); //writer...
+        close(pipeRP_d[0]); //non serve
+        reader(pipeRP_d[1], ptr, statbuf.st_size); //pipeRP_d, mmap ptr, size
+    }
+    if(fork() == 0){
+        close(pipeRP_d[0]);
+        close(pipeRP_d[1]);
+        close(pipePW_d[1]);
         writer(pipePW_d[0]); //pipePW_d
+    }
 
     //chiusura canali pipe non usati dal padre...
     close(pipeRP_d[1]);
@@ -109,8 +116,6 @@ int main(int argc, char *argv[]){
         if(isPalindrome(buffer))
             write(pipePW_d[1], &buffer, strlen(buffer)); //scrivo parola-per-parola
     }
-
-printf("asdasdasd__debug_writer_attesa_\n");
 
     close(pipeRP_d[0]);
     close(pipePW_d[1]);
