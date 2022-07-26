@@ -69,7 +69,7 @@ void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
 void writer(shmMsg *ptr, int sem, char *outputPath){
     FILE *output;
 
-    if((output = fopen(outputPath, "w")) == NULL){ //apro file output in uno stream
+    if(outputPath && (output = fopen(outputPath, "w")) == NULL){ //apro file output in uno stream
         perror("fopen reader");
         exit(1);
     }
@@ -80,11 +80,16 @@ void writer(shmMsg *ptr, int sem, char *outputPath){
         if(ptr->eof)
             break;
 
-        fputs(ptr->parola, output);
-        printf("[W] palindroma scritta in '%s': %s", outputPath, ptr->parola);
+        if(outputPath)
+            fputs(ptr->parola, output);
+        else
+            printf("[W] palindroma: %s", ptr->parola);
 
         SIGNAL(sem, S_READER);
     }
+
+    if(outputPath)
+        printf("[W] file scritto!\n");
 
     //in chiusura...
     fclose(output);
@@ -106,7 +111,7 @@ int main(int argc, char *argv[]){
     int shm_d, sem_d;
     shmMsg *ptr;
 
-    if(argc != 3){
+    if(argc != 3 && argc != 2){
         fprintf(stderr, "Uso: %s <input-file> <output-file>", argv[0]);
         exit(1);
     }
@@ -138,8 +143,12 @@ int main(int argc, char *argv[]){
     //creazione figli
     if(fork() == 0)
         reader(ptr, sem_d, argv[1]); //ptr_shm, sem_d, argv[1]
-    if(fork() == 0)
-        writer(ptr, sem_d, argv[2]); //ptr_shm, sem_d, argv[2]
+    if(fork() == 0){
+        if(argc == 3)
+            writer(ptr, sem_d, argv[2]); //ptr_shm, sem_d, argv[2]
+        else
+            writer(ptr, sem_d, NULL);
+    }
 
     while(1){
         WAIT(sem_d, S_PADRE); //aspetto che il reader mi segnali la presenza di dati sulla shm da elaborare...
