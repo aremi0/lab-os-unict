@@ -6,7 +6,8 @@
  * 
  * Prova di laboratorio di SO del 2020-07-30
  * 
- * 19.43 - 20.10 === 20.26 - 20.51  ==>1h ==> rimanenti 1h40m  a partire da ore 21.00
+ * P.s. forse si può diminuire il numero di semafori a 2? bhu, non penso perchè
+ *      perderei la sincronia fra i 3 processi...
  */
 
 #include <stdlib.h>
@@ -66,7 +67,7 @@ void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     exit(0);
 }
 
-void writer(shmMsg *ptr, int sem, char *outputPath){
+void writer(shmMsg *ptr, int sem, char *outputPath){ //se è specificato un file di output scrivo solo lì, altrimenti stampo sul terminale...
     FILE *output;
 
     if(outputPath && (output = fopen(outputPath, "w")) == NULL){ //apro file output in uno stream
@@ -112,7 +113,7 @@ int main(int argc, char *argv[]){
     shmMsg *ptr;
 
     if(argc != 3 && argc != 2){
-        fprintf(stderr, "Uso: %s <input-file> <output-file>", argv[0]);
+        fprintf(stderr, "Uso: %s <input-file> [output-file]", argv[0]);
         exit(1);
     }
     if((shm_d = shmget(IPC_PRIVATE, sizeof(shmMsg), IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione segmento condiviso
