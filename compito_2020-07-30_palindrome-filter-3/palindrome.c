@@ -6,7 +6,7 @@
  * 
  * Prova di laboratorio di SO del 2020-07-30
  * 
- * 19.43 - 20.10 === 20.26 - 20.51
+ * 19.43 - 20.10 === 20.26 - 20.51  ==>1h ==> rimanenti 1h40m  a partire da ore 21.00
  */
 
 #include <stdlib.h>
@@ -51,7 +51,6 @@ void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     ptr->eof = 0;
 
     while(fgets(ptr->parola, MAX_LEN, input)){ //mentre leggo righe dal file...
-//printf("_debug_reader_%s__\n", ptr->parola);
         SIGNAL(sem, S_PADRE);
         WAIT(sem, S_READER);
     }
@@ -67,13 +66,13 @@ void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     exit(0);
 }
 
-void writer(shmMsg *ptr, int sem/*, char *outputPath*/){
-    /*FILE *output;
+void writer(shmMsg *ptr, int sem, char *outputPath){
+    FILE *output;
 
     if((output = fopen(outputPath, "w")) == NULL){ //apro file output in uno stream
         perror("fopen reader");
         exit(1);
-    }*/
+    }
 
     while(1){
         WAIT(sem, S_WRITER); //aspetto che il padre mi svegli per scrivere la parola in output
@@ -81,13 +80,14 @@ void writer(shmMsg *ptr, int sem/*, char *outputPath*/){
         if(ptr->eof)
             break;
 
-        printf("[W] palindroma ricevuta: %s", ptr->parola);
+        fputs(ptr->parola, output);
+        printf("[W] palindroma scritta in '%s': %s", outputPath, ptr->parola);
 
         SIGNAL(sem, S_READER);
     }
 
     //in chiusura...
-    //fclose(output);
+    fclose(output);
     shmdt(ptr);
     printf("\t\t[W] terminazione...\n");
     exit(0);
@@ -106,7 +106,7 @@ int main(int argc, char *argv[]){
     int shm_d, sem_d;
     shmMsg *ptr;
 
-    if(argc != 2){
+    if(argc != 3){
         fprintf(stderr, "Uso: %s <input-file> <output-file>", argv[0]);
         exit(1);
     }
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]){
     if(fork() == 0)
         reader(ptr, sem_d, argv[1]); //ptr_shm, sem_d, argv[1]
     if(fork() == 0)
-        writer(ptr, sem_d/*, argv[2]*/); //ptr_shm, sem_d, argv[2]
+        writer(ptr, sem_d, argv[2]); //ptr_shm, sem_d, argv[2]
 
     while(1){
         WAIT(sem_d, S_PADRE); //aspetto che il reader mi segnali la presenza di dati sulla shm da elaborare...
