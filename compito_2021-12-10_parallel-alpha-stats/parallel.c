@@ -59,7 +59,7 @@ void lettera(int sem, char *shm, int coda, char id){
         WAIT(sem, S_Li); //aspetto che il padre mi svegli...
         nOccorrenze = 0;
 
-        if(shm[0] == '%') //uso '%' come carattere eof
+        if(shm[0] == (char)-1) //uso (char)-1 come carattere eof
             break;
 
         for(int i = 0; i < DIMBUF; i++)
@@ -185,7 +185,7 @@ int main(int argc, char *argv[]){
 
     //in chiusura... mando eof e pulisco
 
-    p[0] = '%'; //eof ai processi L[i]
+    p[0] = (char)-1; //eof ai processi L[i]
     for(int i = 0; i < 26; i++) //sveglio tutti i processo L[i]
         SIGNAL(sem_d, S_Li);
 
