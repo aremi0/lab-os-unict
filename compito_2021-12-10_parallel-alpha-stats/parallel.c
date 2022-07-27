@@ -194,7 +194,7 @@ int main(int argc, char *argv[]){
     //in chiusura... mando eof e pulisco
 
     p[0] = (char)-1; //eof ai processi L[i]
-    for(int i = 0; i < 26; i++) //sveglio tutti i processo L[i]
+    for(int i = 0; i < 26; i++) //sveglio tutti i processo L[i], solamente il processo 'A' manderà eof a stampa
         SIGNAL(sem_d, S_Li);
 
     for(int i = 0; i < 27; i++)
