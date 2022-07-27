@@ -21,16 +21,16 @@
 #define DIMBUF 1024
 
 typedef struct{
-    long type; //tipo di ogni parola distinta
+    long type;              //tipo di ogni i-esima parola distinta di argv[]
     char parola[DIMBUF];
 } padreMsg;
 
 typedef struct{
-    long type;
+    long type;              //non sfruttato
     unsigned eof;
-    int numRiga;
-    char riga[DIMBUF];
-    char parola[DIMBUF];
+    int numRiga;            //numero riga del match
+    char riga[DIMBUF];      //contenuto intera riga del match
+    char parola[DIMBUF];    //parola da ricercare nella riga
     char nomeFile[DIMBUF];
 } figlioMsg;
 
@@ -38,8 +38,8 @@ void fileReader(int codaP, int codaF, char *pathFile, unsigned numParole){ //cod
     padreMsg toReceive;
     figlioMsg toSend;
     FILE *f;
-    char allReq[numParole][DIMBUF], rigaFile[DIMBUF];
-    int nMatch = 0, nRigaMatch = 0;
+    char rigaFile[DIMBUF], allReq[numParole][DIMBUF];
+    int nRigaMatch = 0;
 
     if((f = fopen(pathFile, "r")) == NULL){ //apro il file su cui effettuare ricerca
         fprintf(stderr, "fopen fileReader <%s>", pathFile);
@@ -47,7 +47,7 @@ void fileReader(int codaP, int codaF, char *pathFile, unsigned numParole){ //cod
     }
 
     for(int i = 1; i <= numParole; i++){
-        if((msgrcv(codaP, &toReceive, sizeof(padreMsg)-sizeof(long), i, 0)) == -1){ //ricevo gradualmente le parole distinte di tipo i-esimo...
+        if((msgrcv(codaP, &toReceive, sizeof(padreMsg)-sizeof(long), i, 0)) == -1){ //ricevo gradualmente le parole argv[] di tipo i-esimo...
             fprintf(stderr, "msgrcv fileReader <%s>", pathFile);
             exit(1);
         }
@@ -66,7 +66,7 @@ void fileReader(int codaP, int codaF, char *pathFile, unsigned numParole){ //cod
                 toSend.numRiga = nRigaMatch;
                 toSend.type = i+1;
 
-                if((msgsnd(codaF, &toSend, sizeof(figlioMsg)-sizeof(long), 0)) == -1){
+                if((msgsnd(codaF, &toSend, sizeof(figlioMsg)-sizeof(long), 0)) == -1){ //...salvo tutte le info utili e mando msg al padre
                     fprintf(stderr, "msgsnd fileReader <%s>", pathFile);
                     exit(1);
                 }
@@ -98,13 +98,13 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    for(int i = 1; i < argc; i++){
+    for(int i = 1; i < argc; i++){ //leggi giù...
         if(strcmp(argv[i], "@") != 0)
             numParole++;
         else
             break;
     }
-    numFile = (argc-2) - numParole; //... conto il numero di parole e per sottrazione il numero di file...
+    numFile = (argc-2) - numParole; //...conto il numero di parole e per sottrazione il numero di file...
 
     if((codaPF_d = msgget(IPC_PRIVATE, IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione coda padre->figlio
         perror("msgget snd");
@@ -116,15 +116,15 @@ int main(int argc, char *argv[]){
     }
 
     //creazione figli...
-    for(int i = 0; i < numFile; i++)
+    for(int i = 0; i < numFile; i++) //==>[numeroDiFile corrisponde conseguentemente al numeroDiFigli]<==
         if(fork() == 0)
             fileReader(codaPF_d, codaFP_d, argv[i+(numParole+2)], numParole); //codaPF, codaFP, argv[file], numParole;
 
     for(int i = 1; i <= numParole; i++){ //mando tutte le parole a tutti i figli...
         strcpy(toSend.parola, argv[i]);
-        toSend.type = i; //ogni parola ha un suo tipo
+        toSend.type = i; //ogni parola ha il suo tipo
 
-        for(int j = 0; j < numFile; j++){
+        for(int j = 0; j < numFile; j++){ //mando la parola i-esima a tutti i figli
             if((msgsnd(codaPF_d, &toSend, sizeof(padreMsg)-sizeof(long), 0)) == -1){
                 perror("msgsnd padre");
                 exit(1);
@@ -148,6 +148,11 @@ int main(int argc, char *argv[]){
         }
 
         printf("[P] %s@%s:%d:%s", toReceive.parola, toReceive.nomeFile, toReceive.numRiga, toReceive.riga);
-
     }
+
+    //in chiusura...
+    msgctl(codaFP_d, IPC_RMID, NULL);
+    msgctl(codaFP_d, IPC_RMID, NULL);
+    printf("\t\t[PADRE] terminazione...\n");
+    exit(0);
 }
