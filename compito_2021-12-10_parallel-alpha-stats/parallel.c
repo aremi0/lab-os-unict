@@ -73,6 +73,15 @@ void lettera(int sem, char *shm, int coda, char id){
         }
     }
 
+    if(id == 'A'){ //solamente un figlio manderà l'eof al processo stampa
+        messaggio.eof = 1;
+
+        if((msgsnd(coda, &messaggio, sizeof(msg)-sizeof(long), 0)) == -1){
+            perror("msgsnd lettera[i]");
+            exit(1);
+        }
+    }
+
     //in chiusura...
     printf("\t\t[L.%c] terminazione...\n", id);
     exit(0);
@@ -125,7 +134,6 @@ void stampa(int sem, int coda){
 }
 
 int main(int argc, char *argv[]){
-    msg eof;
     int sem_d, coda_d, shm_d, riga = 1;
     FILE *f;
     char buffer[DIMBUF];
@@ -189,17 +197,9 @@ int main(int argc, char *argv[]){
     for(int i = 0; i < 26; i++) //sveglio tutti i processo L[i]
         SIGNAL(sem_d, S_Li);
 
-    eof.eof = 1;
-    eof.type = 1;
-    if((msgsnd(coda_d, &eof, sizeof(msg)-sizeof(long), 0)) == -1){
-        perror("msgsnd padre");
-        exit(1);
-    }
-
     for(int i = 0; i < 27; i++)
         wait(NULL);
 
-    
     semctl(sem_d, 0, IPC_RMID, 0);
     shmctl(shm_d, IPC_RMID, NULL);
     msgctl(coda_d, IPC_RMID, NULL);
