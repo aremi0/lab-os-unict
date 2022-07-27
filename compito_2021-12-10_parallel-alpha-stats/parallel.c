@@ -37,6 +37,7 @@ int SIGNAL(int sem_d, int numSem){
 /***
  *  SHM             ==> usata dai processi PADRE e LETTERA[i]
  *  |--- p[0]: char* text[DIMBUF];
+ *  |--- p[0] == (char)-1   ====> EOF
  * 
 */
 /***
