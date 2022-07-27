@@ -44,7 +44,7 @@ int SIGNAL(int sem_des, int numSem){
 void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     FILE *input;
 
-    if(inputPath && (input = fopen(inputPath, "r")) == NULL){ //apro file input in uno stream
+    if(inputPath && ((input = fopen(inputPath, "r")) == NULL)){ //apro file input in uno stream
         perror("fopen reader");
         exit(1);
     }        
@@ -75,7 +75,8 @@ void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     SIGNAL(sem, S_WRITER); //mando eof
 
     //in chiusura...
-    fclose(input);
+    if(inputPath)
+        fclose(input);
     shmdt(ptr);
     printf("\t\t[R] terminazione...\n");
     exit(0);
@@ -103,11 +104,12 @@ void writer(shmMsg *ptr, int sem, char *outputPath){ //se è specificato un file
         SIGNAL(sem, S_READER);
     }
 
-    if(outputPath)
+    if(outputPath){
         printf("[W] file scritto!\n");
+        fclose(output);
+    }
 
     //in chiusura...
-    fclose(output);
     shmdt(ptr);
     printf("\t\t[W] terminazione...\n");
     exit(0);
