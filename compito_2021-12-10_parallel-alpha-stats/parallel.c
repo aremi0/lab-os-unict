@@ -63,7 +63,7 @@ void lettera(int sem, char *shm, int coda, char id){
             break;
 
         for(int i = 0; i < DIMBUF; i++)
-            if((id == (char)tolower((int)shm[i])) || (id == (char)toupper((int)shm[i])))
+            if(id == toupper(shm[i]))
                 nOccorrenze++;
 
         messaggio.occorrenze = nOccorrenze;
