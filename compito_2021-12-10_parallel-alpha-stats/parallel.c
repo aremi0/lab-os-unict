@@ -97,9 +97,9 @@ void stampa(int sem, int coda){
                 break;
             }
 
-            //"(int)((messaggio[i].type)-65)"  ||'A' = 65||==> 'A'-65 = 0     \/   'B'-65 = 1   ecc...
-            current[(int)((messaggio.type)-65)] = messaggio.occorrenze;
-            total[(int)((messaggio.type)-65)] += current[(int)((messaggio.type)-65)];
+            //"messaggio.type-65"  vuol dire:  'A' = 65 ==> 'A'-65 = 0   \/  'B'-65 = 1   ecc...
+            current[messaggio.type-65] = messaggio.occorrenze;
+            total[messaggio.type-65] += current[messaggio.type-65];
         }
 
         if(myEof)
@@ -108,7 +108,7 @@ void stampa(int sem, int coda){
         printf("[S]: riga n.%d: ", riga);
         for(int i = 0; i < 26; i++)
             printf("%c=%d ", (char)((int)'A'+i), current[i]);
-        printf("\n");
+        printf("\n\n");
         riga++;
 
         SIGNAL(sem, S_NEXT);
