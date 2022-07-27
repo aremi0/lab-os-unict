@@ -80,26 +80,26 @@ void lettera(int sem, char *shm, int coda, char id){
 
 void stampa(int sem, int coda){
     int myEof = 0;
-    msg messaggio[26];
+    msg messaggio;
     int current[26], total[26], riga = 1;
 
     memset(&total, 0, sizeof(int)*26); //setto tutto totale con zeri
 
     while(1){
         for(int i = 0; i < 26; i++){ //ricevo i 26 messaggi dei L[i] prcessi...
-            if((msgrcv(coda, &messaggio[i], sizeof(msg)-sizeof(long), 0, 0)) == -1){
+            if((msgrcv(coda, &messaggio, sizeof(msg)-sizeof(long), 0, 0)) == -1){
                 perror("msgrcv stampa");
                 exit(1);
             }
 
-            if(messaggio[i].eof){ //eof mandato dal padre...
+            if(messaggio.eof){ //eof mandato dal padre...
                 myEof = 1;
                 break;
             }
 
             //"(int)((messaggio[i].type)-65)"  ||'A' = 65||==> 'A'-65 = 0     \/   'B'-65 = 1   ecc...
-            current[(int)((messaggio[i].type)-65)] = messaggio[i].occorrenze;
-            total[(int)((messaggio[i].type)-65)] += current[(int)((messaggio[i].type)-65)];
+            current[(int)((messaggio.type)-65)] = messaggio.occorrenze;
+            total[(int)((messaggio.type)-65)] += current[(int)((messaggio.type)-65)];
         }
 
         if(myEof)
