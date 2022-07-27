@@ -44,16 +44,30 @@ int SIGNAL(int sem_des, int numSem){
 void reader(shmMsg* ptr, int sem, char *inputPath){ //ptr_shm, sem_d, argv[1]
     FILE *input;
 
-    if((input = fopen(inputPath, "r")) == NULL){ //apro file input in uno stream
+    if(inputPath && (input = fopen(inputPath, "r")) == NULL){ //apro file input in uno stream
         perror("fopen reader");
         exit(1);
-    }
+    }        
 
     ptr->eof = 0;
 
-    while(fgets(ptr->parola, MAX_LEN, input)){ //mentre leggo righe dal file...
+    if(inputPath){
+        while(fgets(ptr->parola, MAX_LEN, input)){ //mentre leggo righe dal file...
         SIGNAL(sem, S_PADRE);
         WAIT(sem, S_READER);
+        }
+    }
+    else{
+        while(1){ //mentre leggo righe dalla tastiera...
+        printf("[R] digita una parola; 'exit' per uscire\n");
+        fgets(ptr->parola, MAX_LEN, stdin);
+
+        if(strcmp(ptr->parola, "exit\n") == 0)
+            break;
+
+            SIGNAL(sem, S_PADRE);
+            WAIT(sem, S_READER);
+        }
     }
 
     ptr->eof = 1;
@@ -100,7 +114,7 @@ void writer(shmMsg *ptr, int sem, char *outputPath){ //se è specificato un file
 }
 
 unsigned isPalindrome(char *parola){
-    for(int i = 0, j = strlen(parola)-3; i <= j; i++, j--){
+    for(int i = 0, j = strlen(parola)-2; i <= j; i++, j--){
         if(i == j) return 1; //se la stringa è dispari e palindroma...
         else if(tolower(parola[i]) != tolower(parola[j])) return 0;
     }
@@ -112,8 +126,8 @@ int main(int argc, char *argv[]){
     int shm_d, sem_d;
     shmMsg *ptr;
 
-    if(argc != 3 && argc != 2){
-        fprintf(stderr, "Uso: %s <input-file> [output-file]", argv[0]);
+    if(argc > 3){
+        fprintf(stderr, "Uso: %s [input-file] [output-file]", argv[0]);
         exit(1);
     }
     if((shm_d = shmget(IPC_PRIVATE, sizeof(shmMsg), IPC_CREAT | IPC_EXCL | 0600)) == -1){ //creazione segmento condiviso
@@ -142,13 +156,17 @@ int main(int argc, char *argv[]){
     }
 
     //creazione figli
-    if(fork() == 0)
-        reader(ptr, sem_d, argv[1]); //ptr_shm, sem_d, argv[1]
     if(fork() == 0){
-        if(argc == 3)
+        if(argc > 2)
             writer(ptr, sem_d, argv[2]); //ptr_shm, sem_d, argv[2]
         else
             writer(ptr, sem_d, NULL);
+    }
+    if(fork() == 0){
+        if(argc > 1)
+            reader(ptr, sem_d, argv[1]); //ptr_shm, sem_d, argv[1]
+        else
+            reader(ptr, sem_d, NULL);
     }
 
     while(1){
