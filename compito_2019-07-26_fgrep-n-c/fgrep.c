@@ -6,7 +6,7 @@
  * 
  * Prova di laboratorio di SO del 2019-07-26
  * 
- * 12.02 - 12.46 === 13.05 - 13.37
+ * 1h20m impiegati per finirlo!
  */
 
 #include <stdlib.h>
