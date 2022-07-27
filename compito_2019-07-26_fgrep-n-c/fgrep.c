@@ -6,7 +6,7 @@
  * 
  * Prova di laboratorio di SO del 2019-07-26
  * 
- * 12.02 - 12.46 === 13.05
+ * 12.02 - 12.46 === 13.05 - 13.37
  */
 
 #include <stdlib.h>
@@ -147,7 +147,7 @@ int main(int argc, char *argv[]){
                 continue;
         }
 
-        printf("[P] %s@%s:%d:%s\n", toReceive.parola, toReceive.nomeFile, toReceive.numRiga, toReceive.riga);
+        printf("[P] %s@%s:%d:%s", toReceive.parola, toReceive.nomeFile, toReceive.numRiga, toReceive.riga);
 
     }
 }
